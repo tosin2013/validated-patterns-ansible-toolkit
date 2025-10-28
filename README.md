@@ -8,12 +8,23 @@
 
 ## 🎯 What is This?
 
-This repository provides **production-ready Ansible roles** and **reference applications** for deploying Validated Patterns on OpenShift. It's designed to be:
+This repository is a **reference implementation and reusable toolkit** for deploying [Validated Patterns](https://validatedpatterns.io/) on OpenShift. It's designed to be:
 
-- ✅ **Cloned/Forked** - Deploy your own Validated Patterns
+- ✅ **Cloned/Forked** - Use as a template for your own pattern deployments
 - ✅ **Copied** - Extract individual Ansible roles into your projects
 - ✅ **Referenced** - Learn best practices for pattern deployment
-- ✅ **Extended** - Customize for your specific needs (GPL v3.0 license)
+- ✅ **Extended** - Customize for your specific needs (GPL v3.0 license allows copying and modification)
+
+### 🎁 This is a Template Repository
+
+**You are encouraged to**:
+- 🔄 **Fork** this repository and make it your own
+- 📋 **Copy** the entire repository for your organization
+- 🧩 **Extract** individual Ansible roles for reuse
+- 🛠️ **Modify** everything to fit your needs
+- 🚀 **Deploy** in your environment without restrictions
+
+The GPL v3.0 license **explicitly allows** you to copy, modify, and use this code. See the [License](#-license) section for details.
 
 ### What's Included
 
@@ -98,8 +109,8 @@ ansible-playbook ansible/playbooks/deploy_complete_pattern.yml
 
 ### Architecture & Decisions
 - **[Architecture Diagrams](docs/ARCHITECTURE-DIAGRAMS.md)** - Visual architecture
-- **[ADRs](docs/adr/)** - 13 Architectural Decision Records
-- **[Implementation Plan](docs/IMPLEMENTATION-PLAN.md)** - 16-week implementation plan
+- **[ADRs](docs/adr/)** - 14 Architectural Decision Records
+- **[Release Plan](docs/RELEASE-PLAN.md)** - v1.0 release plan and progress
 
 ## 🔧 7 Reusable Ansible Roles
 
@@ -503,21 +514,42 @@ podman commit custom-ee custom-ee:latest
 
 This project is licensed under the **GNU General Public License v3.0** - see the [LICENSE](LICENSE) file for details.
 
-### What This Means
+### What This Means for You
 
-✅ **You can**:
-- Copy the code
-- Modify the code
-- Distribute the code
-- Use commercially
+The GPL v3.0 license is **designed to protect your freedom** to use, study, share, and improve this software.
 
-✅ **You must**:
-- Disclose source
-- Include license and copyright notice
-- State changes
-- Use the same license for derivatives
+✅ **You CAN**:
+- ✅ **Copy** this entire repository for your own use
+- ✅ **Fork** the repository and make it your own
+- ✅ **Modify** the code to fit your needs
+- ✅ **Extract** individual Ansible roles into your projects
+- ✅ **Distribute** the code (original or modified)
+- ✅ **Use commercially** in your organization
+- ✅ **Create private deployments** without sharing your changes
 
-**See**: [GNU GPL v3.0 FAQ](https://www.gnu.org/licenses/gpl-faq.html)
+✅ **You MUST** (only if you distribute):
+- 📄 Include the original license and copyright notice
+- 📝 State what changes you made (if any)
+- 🔓 Make your source code available (if you distribute)
+- ⚖️ Use the same GPL v3.0 license for derivatives (if you distribute)
+
+### Common Use Cases
+
+**✅ Allowed without restrictions:**
+- Clone and deploy in your organization (no distribution = no obligations)
+- Extract roles into your private projects
+- Modify for your internal use
+- Learn from the code and examples
+
+**✅ Allowed with GPL v3.0 compliance:**
+- Fork and create your own public pattern repository
+- Distribute modified versions to others
+- Create a commercial product based on this code (must be GPL v3.0)
+
+**See**:
+- [GNU GPL v3.0 Full Text](https://www.gnu.org/licenses/gpl-3.0.html)
+- [GNU GPL v3.0 FAQ](https://www.gnu.org/licenses/gpl-faq.html)
+- [Quick Guide to GPLv3](https://www.gnu.org/licenses/quick-guide-gplv3.html)
 
 ## 👥 Authors & Acknowledgments
 
@@ -528,7 +560,7 @@ This project is licensed under the **GNU General Public License v3.0** - see the
 - **Tosin Akinosho** (@tosin2013) - Validated Patterns Toolkit
 
 ### Contributors
-- See [CONTRIBUTORS.md](CONTRIBUTORS.md) (to be created)
+- See [GitHub Contributors](https://github.com/tosin2013/validated-patterns-ansible-toolkit/graphs/contributors)
 
 ### Acknowledgments
 - [Validated Patterns Community](https://validatedpatterns.io/)
@@ -538,17 +570,24 @@ This project is licensed under the **GNU General Public License v3.0** - see the
 ## 📞 Support & Community
 
 ### Get Help
-- **Issues**: [GitHub Issues](https://github.com/tosin2013/validated-patterns-ansible-toolkit/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/tosin2013/validated-patterns-ansible-toolkit/discussions)
-- **Documentation**: [docs/](docs/)
+- **Documentation**: [SUPPORT.md](SUPPORT.md) - Comprehensive support guide
+- **Issues**: [GitHub Issues](https://github.com/tosin2013/validated-patterns-ansible-toolkit/issues) - Bug reports and feature requests
+- **Discussions**: [GitHub Discussions](https://github.com/tosin2013/validated-patterns-ansible-toolkit/discussions) - Questions and community discussions
+- **Guides**: [docs/](docs/) - Comprehensive documentation
+
+### Contributing
+- **Contributing Guide**: [CONTRIBUTING.md](CONTRIBUTING.md) - How to contribute
+- **Code of Conduct**: [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) - Community standards
+- **Pre-commit Setup**: [docs/CONTRIBUTING-PRE-COMMIT.md](docs/CONTRIBUTING-PRE-COMMIT.md) - Developer setup
 
 ### Community
 - **Validated Patterns**: [validatedpatterns.io](https://validatedpatterns.io/)
 - **Red Hat Communities**: [github.com/redhat-cop](https://github.com/redhat-cop)
 
 ### Security
-- **Report vulnerabilities**: See [SECURITY.md](SECURITY.md) (to be created)
-- **Pre-commit hooks**: Gitleaks for secret scanning
+- **Security Policy**: [SECURITY.md](SECURITY.md) - Vulnerability reporting and security practices
+- **Pre-commit Hooks**: Gitleaks for secret scanning (8 custom rules)
+- **Security Advisory**: [SECURITY-ADVISORY-001](docs/SECURITY-ADVISORY-001-EXPOSED-GITEA-TOKEN.md) - Resolved incidents
 
 ---
 

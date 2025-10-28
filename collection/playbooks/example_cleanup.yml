@@ -1,0 +1,152 @@
+---
+# Example: Cleanup Validated Pattern Deployment
+# This playbook demonstrates how to safely remove a Validated Pattern deployment
+
+- name: Cleanup Validated Pattern Deployment
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  
+  vars:
+    # Pattern to cleanup
+    pattern_name: "industrial-edge"
+    
+    # Cleanup configuration
+    cleanup_operators: true
+    cleanup_namespaces: true
+    cleanup_crds: false  # Be careful with CRDs
+    cleanup_gitea: false
+    cleanup_sealed_secrets: false
+    
+    # Safety options
+    confirm_cleanup: true
+    dry_run: false
+  
+  tasks:
+    - name: Confirm cleanup operation
+      ansible.builtin.pause:
+        prompt: |
+          ========================================
+          WARNING: Cleanup Operation
+          ========================================
+          
+          This will remove the following:
+          - Pattern: {{ pattern_name }}
+          - Operators: {{ cleanup_operators | ternary('YES', 'NO') }}
+          - Namespaces: {{ cleanup_namespaces | ternary('YES', 'NO') }}
+          - CRDs: {{ cleanup_crds | ternary('YES', 'NO') }}
+          - Gitea: {{ cleanup_gitea | ternary('YES', 'NO') }}
+          - Sealed Secrets: {{ cleanup_sealed_secrets | ternary('YES', 'NO') }}
+          
+          This operation cannot be undone!
+          
+          Type 'yes' to continue or 'no' to cancel
+      register: cleanup_confirmation
+      when: confirm_cleanup | bool
+    
+    - name: Abort if not confirmed
+      ansible.builtin.fail:
+        msg: "Cleanup operation cancelled by user"
+      when:
+        - confirm_cleanup | bool
+        - cleanup_confirmation.user_input | lower != 'yes'
+    
+    - name: Display cleanup plan
+      ansible.builtin.debug:
+        msg:
+          - "Starting cleanup operation..."
+          - "Pattern: {{ pattern_name }}"
+          - "Dry Run: {{ dry_run | ternary('YES (no changes will be made)', 'NO (changes will be applied)') }}"
+    
+    - name: Run cleanup role
+      ansible.builtin.include_role:
+        name: tosin2013.validated_patterns_toolkit.cleanup
+      vars:
+        cleanup_dry_run: "{{ dry_run }}"
+    
+    - name: Cleanup Gitea (if requested)
+      kubernetes.core.k8s:
+        state: absent
+        api_version: v1
+        kind: Namespace
+        name: gitea
+      when:
+        - cleanup_gitea | bool
+        - not dry_run | bool
+    
+    - name: Cleanup Sealed Secrets (if requested)
+      kubernetes.core.k8s:
+        state: absent
+        api_version: v1
+        kind: Namespace
+        name: sealed-secrets
+      when:
+        - cleanup_sealed_secrets | bool
+        - not dry_run | bool
+    
+    - name: Verify cleanup completion
+      kubernetes.core.k8s_info:
+        api_version: argoproj.io/v1alpha1
+        kind: Application
+        namespace: openshift-gitops
+        name: "{{ pattern_name }}"
+      register: pattern_check
+      failed_when: false
+    
+    - name: Display cleanup results
+      ansible.builtin.debug:
+        msg:
+          - "========================================="
+          - "Cleanup Operation Complete!"
+          - "========================================="
+          - "Pattern: {{ pattern_name }}"
+          - "Status: {{ pattern_check.resources | length == 0 | ternary('REMOVED', 'STILL EXISTS') }}"
+          - "Dry Run: {{ dry_run | ternary('YES (no changes made)', 'NO (changes applied)') }}"
+          - ""
+          - "Cleaned up:"
+          - "  - Pattern applications: YES"
+          - "  - Operators: {{ cleanup_operators | ternary('YES', 'NO') }}"
+          - "  - Namespaces: {{ cleanup_namespaces | ternary('YES', 'NO') }}"
+          - "  - CRDs: {{ cleanup_crds | ternary('YES', 'NO') }}"
+          - "  - Gitea: {{ cleanup_gitea | ternary('YES', 'NO') }}"
+          - "  - Sealed Secrets: {{ cleanup_sealed_secrets | ternary('YES', 'NO') }}"
+          - "========================================="
+    
+    - name: Generate cleanup report
+      ansible.builtin.copy:
+        content: |
+          Validated Patterns Cleanup Report
+          ==================================
+          
+          Date: {{ ansible_date_time.iso8601 }}
+          Pattern: {{ pattern_name }}
+          Dry Run: {{ dry_run | ternary('YES', 'NO') }}
+          
+          Cleanup Configuration:
+          - Operators: {{ cleanup_operators | ternary('YES', 'NO') }}
+          - Namespaces: {{ cleanup_namespaces | ternary('YES', 'NO') }}
+          - CRDs: {{ cleanup_crds | ternary('YES', 'NO') }}
+          - Gitea: {{ cleanup_gitea | ternary('YES', 'NO') }}
+          - Sealed Secrets: {{ cleanup_sealed_secrets | ternary('YES', 'NO') }}
+          
+          Status: {{ pattern_check.resources | length == 0 | ternary('COMPLETED', 'INCOMPLETE') }}
+          
+          {% if dry_run %}
+          NOTE: This was a dry run. No actual changes were made.
+          {% endif %}
+        dest: "./cleanup_report_{{ pattern_name }}_{{ ansible_date_time.epoch }}.txt"
+      delegate_to: localhost
+
+# Usage:
+# Dry run (preview changes):
+# ansible-playbook example_cleanup.yml -e "dry_run=true"
+#
+# Actual cleanup with confirmation:
+# ansible-playbook example_cleanup.yml
+#
+# Cleanup without confirmation (dangerous!):
+# ansible-playbook example_cleanup.yml -e "confirm_cleanup=false"
+#
+# Complete cleanup including Gitea and Sealed Secrets:
+# ansible-playbook example_cleanup.yml -e "cleanup_gitea=true cleanup_sealed_secrets=true"
+

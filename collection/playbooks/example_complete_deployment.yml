@@ -1,0 +1,116 @@
+---
+# Example: Complete Validated Pattern Deployment
+# This playbook demonstrates a complete end-to-end deployment of a Validated Pattern
+
+- name: Deploy Validated Pattern - Complete Workflow
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  
+  vars:
+    # Pattern Configuration
+    pattern_name: "industrial-edge"
+    pattern_repo: "https://github.com/validatedpatterns/industrial-edge.git"
+    pattern_branch: "main"
+    
+    # Cluster Configuration
+    target_namespace: "openshift-gitops"
+    kubeconfig_path: "~/.kube/config"
+    
+    # Prerequisites Configuration
+    min_openshift_version: "4.12"
+    min_worker_nodes: 3
+    min_cpu_per_node: 8
+    min_memory_per_node: 16
+    
+    # ArgoCD Configuration
+    argocd_namespace: "openshift-gitops"
+    sync_policy: "automated"
+    self_heal: true
+    prune_resources: true
+    auto_sync: true
+    sync_timeout: 900
+    
+    # Secrets Configuration
+    sealed_secrets_namespace: "sealed-secrets"
+    manage_credentials: true
+    
+    # Validation Configuration
+    validate_deployment: true
+    wait_for_sync: true
+  
+  tasks:
+    - name: "Step 1: Validate cluster prerequisites"
+      ansible.builtin.include_role:
+        name: tosin2013.validated_patterns_toolkit.prerequisites
+      tags:
+        - prerequisites
+        - validation
+    
+    - name: Display prerequisite check results
+      ansible.builtin.debug:
+        msg: "Prerequisites validation: {{ 'PASSED' if prerequisite_check_passed else 'FAILED' }}"
+      tags:
+        - prerequisites
+    
+    - name: "Step 2: Setup common resources"
+      ansible.builtin.include_role:
+        name: tosin2013.validated_patterns_toolkit.common
+      tags:
+        - common
+        - setup
+    
+    - name: "Step 3: Install Validated Patterns Operator"
+      ansible.builtin.include_role:
+        name: tosin2013.validated_patterns_toolkit.operator
+      tags:
+        - operator
+        - install
+    
+    - name: "Step 4: Setup secrets management"
+      ansible.builtin.include_role:
+        name: tosin2013.validated_patterns_toolkit.secrets
+      tags:
+        - secrets
+        - security
+    
+    - name: "Step 5: Deploy the pattern"
+      ansible.builtin.include_role:
+        name: tosin2013.validated_patterns_toolkit.deploy
+      tags:
+        - deploy
+        - pattern
+    
+    - name: "Step 6: Validate deployment"
+      ansible.builtin.include_role:
+        name: tosin2013.validated_patterns_toolkit.validate
+      tags:
+        - validate
+        - health
+    
+    - name: Display deployment summary
+      ansible.builtin.debug:
+        msg:
+          - "========================================="
+          - "Validated Pattern Deployment Complete!"
+          - "========================================="
+          - "Pattern Name: {{ pattern_name }}"
+          - "Pattern Repository: {{ pattern_repo }}"
+          - "Pattern Branch: {{ pattern_branch }}"
+          - "Deployment Status: {{ deployment_status.success | default(false) | ternary('SUCCESS', 'FAILED') }}"
+          - "ArgoCD Sync Status: {{ sync_status | default('Unknown') }}"
+          - "Pattern Health: {{ pattern_health | default('Unknown') }}"
+          - "========================================="
+      tags:
+        - always
+
+# Usage:
+# ansible-playbook example_complete_deployment.yml
+#
+# Run specific steps only:
+# ansible-playbook example_complete_deployment.yml --tags prerequisites
+# ansible-playbook example_complete_deployment.yml --tags deploy
+#
+# Skip specific steps:
+# ansible-playbook example_complete_deployment.yml --skip-tags secrets
+

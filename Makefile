@@ -76,6 +76,8 @@ list: # List the built image by name:tag
 
 test: # Run the example playbook using the built container image
 	@echo "\n\n***************************** Testing... \n"
+	@echo "Verifying image exists locally:"
+	$(CONTAINER_ENGINE) images $(TARGET_NAME):$(TARGET_TAG)
 	ansible-navigator run \
 		files/playbook.yml \
 		--container-engine $(CONTAINER_ENGINE) \

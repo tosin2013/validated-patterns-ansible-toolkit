@@ -20,7 +20,10 @@ collections:
   # - name: vmware.vmware_rest  # vmware
   - name: kubernetes.core  # containers (required for validated-patterns)
   - name: redhat.openshift  # containers (required for validated-patterns)
-  - name: rhvp.cluster_utils  # validated-patterns (cluster utilities)
+  # Install rhvp.cluster_utils from GitHub (not published to Galaxy/Automation Hub)
+  - name: https://github.com/validatedpatterns/rhvp.cluster_utils.git
+    type: git
+    version: main
   # https://opendev.org/openstack/ansible-collections-openstack
   # https://storyboard.openstack.org/#!/dashboard/stories
   # Issue with bindep.txt https://storyboard.openstack.org/#!/story/2010889

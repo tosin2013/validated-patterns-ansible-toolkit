@@ -6,7 +6,7 @@
   hosts: localhost
   connection: local
   gather_facts: false
-  
+
   vars:
     # Prerequisites Configuration
     min_openshift_version: "4.12"
@@ -14,29 +14,29 @@
     min_cpu_per_node: 8
     min_memory_per_node: 16
     min_storage_gb: 100
-    
+
     # Check configuration
     check_only: true
     fail_on_error: false
-    
+
     # Required operators
     required_operators:
       - openshift-gitops-operator
       - openshift-pipelines-operator
-    
+
     # Required storage classes
     required_storage_classes:
       - gp3-csi
-    
+
     # Enable all checks
     check_network: true
     check_rbac: true
-  
+
   tasks:
     - name: Run prerequisites validation
       ansible.builtin.include_role:
         name: tosin2013.validated_patterns_toolkit.prerequisites
-    
+
     - name: Display detailed validation results
       ansible.builtin.debug:
         msg:
@@ -57,50 +57,50 @@
           - "Errors: {{ prerequisite_errors | default([]) | length }}"
           - "Warnings: {{ prerequisite_warnings | default([]) | length }}"
           - "========================================="
-    
+
     - name: Display errors (if any)
       ansible.builtin.debug:
         msg: "{{ prerequisite_errors }}"
       when: prerequisite_errors | default([]) | length > 0
-    
+
     - name: Display warnings (if any)
       ansible.builtin.debug:
         msg: "{{ prerequisite_warnings }}"
       when: prerequisite_warnings | default([]) | length > 0
-    
+
     - name: Generate validation report
       ansible.builtin.copy:
         content: |
           Validated Patterns Prerequisites Validation Report
           ===================================================
-          
+
           Date: {{ ansible_date_time.iso8601 }}
-          
+
           Overall Status: {{ prerequisite_check_passed | ternary('PASSED', 'FAILED') }}
-          
+
           Cluster Information:
           - OpenShift Version: {{ prerequisite_check_results.openshift_version | default('Unknown') }}
           - Worker Nodes: {{ prerequisite_check_results.worker_nodes | default(0) }}
           - Total CPU: {{ prerequisite_check_results.total_cpu | default(0) }} cores
           - Total Memory: {{ prerequisite_check_results.total_memory | default(0) }} GB
-          
+
           Operators Installed:
           {% for operator in prerequisite_check_results.operators_installed | default([]) %}
           - {{ operator }}
           {% endfor %}
-          
+
           Storage Classes:
           {% for sc in prerequisite_check_results.storage_classes | default([]) %}
           - {{ sc }}
           {% endfor %}
-          
+
           {% if prerequisite_errors | default([]) | length > 0 %}
           Errors:
           {% for error in prerequisite_errors %}
           - {{ error }}
           {% endfor %}
           {% endif %}
-          
+
           {% if prerequisite_warnings | default([]) | length > 0 %}
           Warnings:
           {% for warning in prerequisite_warnings %}
@@ -115,4 +115,3 @@
 #
 # With custom requirements:
 # ansible-playbook example_prerequisites_only.yml -e "min_worker_nodes=5 min_cpu_per_node=16"
-

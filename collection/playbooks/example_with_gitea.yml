@@ -6,54 +6,54 @@
   hosts: localhost
   connection: local
   gather_facts: false
-  
+
   vars:
     # Pattern Configuration
     pattern_name: "multicloud-gitops"
     pattern_repo: "https://github.com/validatedpatterns/multicloud-gitops.git"
     pattern_branch: "main"
-    
+
     # Use Gitea for local Git hosting
     use_gitea: true
     gitea_namespace: "gitea"
     gitea_admin_user: "gitea-admin"
     gitea_admin_password: "{{ lookup('env', 'GITEA_ADMIN_PASSWORD') | default('changeme', true) }}"
     gitea_create_repos: true
-    
+
     # Gitea repository configuration
     gitea_repos:
       - name: "multicloud-gitops"
         description: "Multicloud GitOps Pattern"
         private: false
         auto_init: false
-    
+
     # ArgoCD Configuration
     argocd_namespace: "openshift-gitops"
     sync_policy: "automated"
     self_heal: true
-    
+
     # Secrets Configuration
     sealed_secrets_namespace: "sealed-secrets"
-  
+
   tasks:
     - name: Validate prerequisites
       ansible.builtin.include_role:
         name: tosin2013.validated_patterns_toolkit.prerequisites
       tags:
         - prerequisites
-    
+
     - name: Setup common resources
       ansible.builtin.include_role:
         name: tosin2013.validated_patterns_toolkit.common
       tags:
         - common
-    
+
     - name: Deploy and configure Gitea
       ansible.builtin.include_role:
         name: tosin2013.validated_patterns_toolkit.gitea
       tags:
         - gitea
-    
+
     - name: Wait for Gitea to be ready
       kubernetes.core.k8s_info:
         api_version: v1
@@ -67,7 +67,7 @@
       delay: 10
       tags:
         - gitea
-    
+
     - name: Display Gitea information
       ansible.builtin.debug:
         msg:
@@ -77,19 +77,19 @@
           - "Repositories created: {{ gitea_repos | map(attribute='name') | list | join(', ') }}"
       tags:
         - gitea
-    
+
     - name: Install Validated Patterns Operator
       ansible.builtin.include_role:
         name: tosin2013.validated_patterns_toolkit.operator
       tags:
         - operator
-    
+
     - name: Setup secrets management
       ansible.builtin.include_role:
         name: tosin2013.validated_patterns_toolkit.secrets
       tags:
         - secrets
-    
+
     - name: Deploy the pattern
       ansible.builtin.include_role:
         name: tosin2013.validated_patterns_toolkit.deploy
@@ -98,13 +98,13 @@
         pattern_repo: "https://gitea-{{ gitea_namespace }}.apps.{{ cluster_domain | default('example.com') }}/{{ gitea_admin_user }}/multicloud-gitops.git"
       tags:
         - deploy
-    
+
     - name: Validate deployment
       ansible.builtin.include_role:
         name: tosin2013.validated_patterns_toolkit.validate
       tags:
         - validate
-    
+
     - name: Display deployment summary
       ansible.builtin.debug:
         msg:
@@ -126,4 +126,3 @@
 #
 # Or with inline password (not recommended for production):
 # ansible-playbook example_with_gitea.yml -e "gitea_admin_password=changeme"
-

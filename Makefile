@@ -10,7 +10,7 @@ SOURCE_TOKEN ?= ANSIBLE_HUB_TOKEN
 #SOURCE_USERNAME ?= jwadleig
 TARGET_HUB ?= quay.io
 #TARGET_USERNAME ?= jwadleig
-TARGET_NAME ?= ansible-ee-minimal
+TARGET_NAME ?= takinosh/validated-patterns-ansible-toolkit-ee
 
 ifndef $(SOURCE_TOKEN)
   $(error The environment variable ANSIBLE_HUB_TOKEN is undefined and required)

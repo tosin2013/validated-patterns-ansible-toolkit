@@ -9,8 +9,8 @@ name: Build and Publish EE (Podman)
   workflow_dispatch:
 
 env:
-  # Change this to your Quay repository path: <org>/<repo>
-  TARGET_NAME: yourorg/ansible-ee-minimal
+  # Quay.io repository path for Validated Patterns Ansible Toolkit EE
+  TARGET_NAME: takinosh/validated-patterns-ansible-toolkit-ee
   TARGET_TAG: v5
   CONTAINER_ENGINE: podman
 

@@ -54,11 +54,21 @@ jobs:
           QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
           QUAY_PASSWORD: ${{ secrets.QUAY_PASSWORD }}
 
-      - name: Configure OpenShift client tools
+      - name: Configure OpenShift client tools (RHSM)
         run: |
-          # Create oc-install.env to enable oc/kubectl installation via tarball
+          # Create rhsm-activation.env to enable oc/kubectl installation via RPM
           mkdir -p files/optional-configs
-          echo "OC_VERSION=stable-4.19" > files/optional-configs/oc-install.env
+          if [ -n "$RH_ORG" ] && [ -n "$RH_ACT_KEY" ]; then
+            echo "RH_ORG=$RH_ORG" > files/optional-configs/rhsm-activation.env
+            echo "RH_ACT_KEY=$RH_ACT_KEY" >> files/optional-configs/rhsm-activation.env
+            echo "RHSM credentials configured for OpenShift client installation"
+          else
+            echo "RHSM credentials not available, falling back to tarball install"
+            echo "OC_VERSION=stable-4.19" > files/optional-configs/oc-install.env
+          fi
+        env:
+          RH_ORG: ${{ secrets.RH_ORG }}
+          RH_ACT_KEY: ${{ secrets.RH_ACT_KEY }}
 
       - name: Build
         env:

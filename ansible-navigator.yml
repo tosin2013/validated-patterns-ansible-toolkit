@@ -19,26 +19,28 @@ ansible-navigator:
       policy: missing
 
     # Volume mounts for local development
-    volume-mounts:
-      # Mount ansible directory
-      - src: "{PWD}/ansible"
-        dest: "/runner/ansible"
-        options: "Z"
-
-      # Mount patterns directory
-      - src: "{PWD}/patterns"
-        dest: "/runner/patterns"
-        options: "Z"
-
-      # Mount gitea directory
-      - src: "{PWD}/gitea"
-        dest: "/runner/gitea"
-        options: "Z"
-
-      # Mount kubeconfig for OpenShift access
-      - src: "{HOME}/.kube"
-        dest: "/runner/.kube"
-        options: "Z"
+    # NOTE: These paths must exist or ansible-navigator will fail
+    # Comment out or create these directories before running
+    # volume-mounts:
+    #   # Mount ansible directory
+    #   - src: "{PWD}/ansible"
+    #     dest: "/runner/ansible"
+    #     options: "Z"
+    #
+    #   # Mount patterns directory
+    #   - src: "{PWD}/patterns"
+    #     dest: "/runner/patterns"
+    #     options: "Z"
+    #
+    #   # Mount gitea directory
+    #   - src: "{PWD}/gitea"
+    #     dest: "/runner/gitea"
+    #     options: "Z"
+    #
+    #   # Mount kubeconfig for OpenShift access
+    #   - src: "{HOME}/.kube"
+    #     dest: "/runner/.kube"
+    #     options: "Z"
 
     # Environment variables to pass through
     environment-variables:

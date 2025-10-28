@@ -84,33 +84,47 @@
   - Testing: ✅ Complete (Week 9 integration tests)
   - ADRs: [ADR-013](./adr/ADR-013-validated-patterns-deployment-strategy.md)
 
-#### 🔄 Repository Migration (In Progress)
-- [ ] **GitHub Migration** - Move from Gitea to GitHub with new name
+#### ✅ Repository Migration (83% Complete)
+- [x] **GitHub Migration** - Move from Gitea to GitHub with new name ✅ **MOSTLY COMPLETE**
   - Tasks:
-    - [ ] Create new GitHub repository `tosin2013/validated-patterns-ansible-toolkit`
-    - [ ] Update all Git URLs in configuration files (20+ files)
-    - [ ] Update documentation references
-    - [ ] Update CI/CD workflows
+    - [ ] Create new GitHub repository `tosin2013/validated-patterns-ansible-toolkit` (Ready to push)
+    - [x] Update all Git URLs in configuration files (54 files updated) ✅
+    - [x] Update documentation references ✅
+    - [x] Update CI/CD workflows ✅
+    - [x] Squash git history to remove exposed secrets ✅
+    - [x] Clean up repository (remove developer notes) ✅
+  - **Status**: Repository prepared and ready for GitHub push
+  - **Completion Date**: 2025-10-28
+  - **See**: Phase 1 tasks (lines 143-346) for detailed implementation notes
 
-#### 🔄 Security Hardening (In Progress)
-- [ ] **Pre-commit Hooks with Gitleaks** - Prevent secrets in commits
+#### ✅ Security Hardening (Complete)
+- [x] **Pre-commit Hooks with Gitleaks** - Prevent secrets in commits ✅ **COMPLETE**
   - Tasks:
-    - [ ] Install and configure pre-commit framework
-    - [ ] Configure gitleaks for secret detection
-    - [ ] Add custom rules for Validated Patterns
-    - [ ] Document setup for contributors
-    - [ ] Add CI/CD integration
+    - [x] Install and configure pre-commit framework ✅
+    - [x] Configure gitleaks for secret detection ✅
+    - [x] Add custom rules for Validated Patterns (8 rules) ✅
+    - [x] Document setup for contributors (CONTRIBUTING-PRE-COMMIT.md) ✅
+    - [x] Add CI/CD integration (pre-commit hooks in workflows) ✅
+  - **Status**: Fully implemented and tested
+  - **Completion Date**: 2025-10-28
+  - **Files**: `.pre-commit-config.yaml`, `.gitleaks.toml`, `.yamllint`
+  - **ADR**: [ADR-014](./adr/ADR-014-pre-commit-hooks-gitleaks.md)
+  - **See**: Phase 1 tasks (lines 156-197) for detailed implementation notes
 
-#### 🔄 Community Files (In Progress)
+#### 🔄 Community Files (14% Complete - 1 of 7 tasks)
 - [ ] **Community Health Files** - Standard community documentation
   - Tasks:
     - [ ] CONTRIBUTING.md (how to contribute roles, patterns, examples)
+    - [x] CONTRIBUTING-PRE-COMMIT.md (pre-commit setup for contributors) ✅
     - [ ] CODE_OF_CONDUCT.md
     - [ ] SECURITY.md (gitleaks, secret scanning)
+    - [x] SECURITY-ADVISORY-001 (exposed token incident - resolved) ✅
     - [ ] SUPPORT.md
     - [ ] Issue templates
     - [ ] Pull request template
     - [ ] LICENSE clarification (GPL v3.0 - allows copying/modification)
+  - **Status**: Pre-commit contributor guide complete, security advisory documented
+  - **Next**: Create remaining community health files (Phase 2 task)
 
 #### 🔄 Reusability Enhancements (In Progress)
 - [ ] **Make Roles Easy to Extract** - Enable users to copy roles into their projects

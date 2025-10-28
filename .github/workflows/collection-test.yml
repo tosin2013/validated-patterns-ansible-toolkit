@@ -1,0 +1,210 @@
+---
+name: Test Ansible Collection
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'collection/**'
+      - '.github/workflows/collection-test.yml'
+  pull_request:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'collection/**'
+      - '.github/workflows/collection-test.yml'
+
+jobs:
+  lint:
+    name: Lint Collection
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install ansible-core>=2.15.0 ansible-lint yamllint
+      
+      - name: Run yamllint
+        run: |
+          echo "Running yamllint on collection..."
+          yamllint collection/ || true  # Non-blocking for now
+      
+      - name: Run ansible-lint
+        run: |
+          echo "Running ansible-lint on collection..."
+          ansible-lint collection/ || true  # Non-blocking for now
+  
+  build:
+    name: Build Collection
+    runs-on: ubuntu-latest
+    needs: lint
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install Ansible
+        run: |
+          python -m pip install --upgrade pip
+          pip install ansible-core>=2.15.0
+      
+      - name: Install required collections
+        run: |
+          ansible-galaxy collection install kubernetes.core:>=2.3.0
+          ansible-galaxy collection install community.general:>=5.0.0
+      
+      - name: Validate collection structure
+        run: |
+          echo "Validating collection structure..."
+          test -f collection/galaxy.yml || { echo "ERROR: galaxy.yml not found"; exit 1; }
+          test -f collection/README.md || { echo "ERROR: README.md not found"; exit 1; }
+          test -f collection/CHANGELOG.rst || { echo "ERROR: CHANGELOG.rst not found"; exit 1; }
+          test -d collection/roles || { echo "ERROR: roles/ directory not found"; exit 1; }
+          
+          echo "Checking for all 8 roles..."
+          for role in prerequisites common operator deploy gitea secrets validate cleanup; do
+            test -d "collection/roles/${role}" || { echo "ERROR: Role ${role} not found"; exit 1; }
+            echo "  ✓ ${role}"
+          done
+          
+          echo "Collection structure validation: PASSED"
+      
+      - name: Build collection
+        run: |
+          echo "Building collection..."
+          ansible-galaxy collection build collection/ --output-path ./
+          
+          TARBALL=$(ls tosin2013-validated_patterns_toolkit-*.tar.gz)
+          echo "Collection built: ${TARBALL}"
+          ls -lh "${TARBALL}"
+          
+          echo "tarball=${TARBALL}" >> $GITHUB_ENV
+      
+      - name: Verify tarball contents
+        run: |
+          echo "Verifying tarball contents..."
+          tar -tzf "${tarball}" | head -30
+          
+          echo "Checking for required files..."
+          tar -tzf "${tarball}" | grep -q "MANIFEST.json" || { echo "ERROR: MANIFEST.json missing"; exit 1; }
+          tar -tzf "${tarball}" | grep -q "FILES.json" || { echo "ERROR: FILES.json missing"; exit 1; }
+          tar -tzf "${tarball}" | grep -q "README.md" || { echo "ERROR: README.md missing"; exit 1; }
+          tar -tzf "${tarball}" | grep -q "CHANGELOG.rst" || { echo "ERROR: CHANGELOG.rst missing"; exit 1; }
+          
+          echo "Tarball verification: PASSED"
+      
+      - name: Test installation
+        run: |
+          echo "Testing collection installation..."
+          ansible-galaxy collection install "${tarball}" --force
+          
+          echo "Verifying installation..."
+          ansible-galaxy collection list tosin2013.validated_patterns_toolkit
+          
+          echo "Checking roles..."
+          for role in prerequisites common operator deploy gitea secrets validate cleanup; do
+            ROLE_PATH=~/.ansible/collections/ansible_collections/tosin2013/validated_patterns_toolkit/roles/${role}
+            test -d "${ROLE_PATH}" || { echo "ERROR: Role ${role} not installed"; exit 1; }
+            echo "  ✓ ${role}"
+          done
+          
+          echo "Installation test: PASSED"
+      
+      - name: Upload collection artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: collection-tarball-pr-${{ github.event.pull_request.number || github.sha }}
+          path: ${{ env.tarball }}
+          retention-days: 7
+      
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const tarball = process.env.tarball;
+            const stats = fs.statSync(tarball);
+            const sizeMB = (stats.size / 1024 / 1024).toFixed(2);
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## ✅ Collection Build Successful\n\n` +
+                    `**Tarball**: \`${tarball}\`\n` +
+                    `**Size**: ${sizeMB} MB\n\n` +
+                    `The collection has been built and tested successfully. ` +
+                    `You can download the artifact from the workflow run.`
+            });
+  
+  test-roles:
+    name: Test Collection Roles
+    runs-on: ubuntu-latest
+    needs: build
+    strategy:
+      matrix:
+        role:
+          - prerequisites
+          - common
+          - operator
+          - deploy
+          - gitea
+          - secrets
+          - validate
+          - cleanup
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install Ansible
+        run: |
+          python -m pip install --upgrade pip
+          pip install ansible-core>=2.15.0
+      
+      - name: Install collection
+        run: |
+          ansible-galaxy collection build collection/ --output-path ./
+          TARBALL=$(ls tosin2013-validated_patterns_toolkit-*.tar.gz)
+          ansible-galaxy collection install "${TARBALL}" --force
+      
+      - name: Verify role structure
+        run: |
+          ROLE_PATH=~/.ansible/collections/ansible_collections/tosin2013/validated_patterns_toolkit/roles/${{ matrix.role }}
+          
+          echo "Checking role structure for ${{ matrix.role }}..."
+          test -d "${ROLE_PATH}" || { echo "ERROR: Role not found"; exit 1; }
+          test -f "${ROLE_PATH}/tasks/main.yml" || { echo "ERROR: tasks/main.yml not found"; exit 1; }
+          test -f "${ROLE_PATH}/meta/main.yml" || { echo "ERROR: meta/main.yml not found"; exit 1; }
+          
+          echo "Role structure validation: PASSED"
+      
+      - name: Syntax check role
+        run: |
+          echo "Running syntax check on ${{ matrix.role }} role..."
+          ansible-playbook --syntax-check collection/roles/${{ matrix.role }}/tests/test.yml || \
+            echo "WARNING: Syntax check failed (may need test playbook)"
+

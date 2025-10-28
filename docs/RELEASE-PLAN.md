@@ -548,7 +548,58 @@
 | [ADR-012](./adr/ADR-012-validated-patterns-common-framework.md) | VP Common Framework | Accepted | Common Role | None |
 | [ADR-013](./adr/ADR-013-validated-patterns-deployment-strategy.md) | VP Deployment Strategy | Accepted | VP Operator | None |
 | [ADR-014](./adr/ADR-014-pre-commit-hooks-gitleaks.md) | Pre-commit and Gitleaks | Accepted | Security | None |
-| ADR-015 | GitHub Migration Strategy | Proposed | Migration | Create new ADR |
+| [ADR-015](./adr/ADR-015-ansible-collection-distribution.md) | Ansible Collection Distribution | Accepted | Future (v1.1.0+) | Implement post-v1.0.0 |
+
+---
+
+## 🚀 Future Enhancements (Post-v1.0.0)
+
+### Ansible Galaxy Collection Distribution (v1.1.0 or v2.0.0)
+
+**Status**: Planned (ADR-015 Accepted ✅)
+**Collection Name**: `tosin2013.validated_patterns_toolkit`
+**Target**: Post-v1.0.0 release
+
+#### Overview
+
+Convert the toolkit to an **Ansible Collection** for distribution via Ansible Galaxy, while maintaining backward compatibility with current installation methods (clone/fork).
+
+#### Benefits
+
+1. **Discoverability** ✅ - Listed on Ansible Galaxy, searchable by tags
+2. **Easy Installation** ✅ - Single command: `ansible-galaxy collection install tosin2013.validated_patterns_toolkit`
+3. **Version Management** ✅ - Semantic versioning, dependency resolution, version pinning
+4. **Professional Distribution** ✅ - Follows Ansible best practices (2024)
+5. **No Breaking Changes** ✅ - Current methods still work (clone/fork)
+
+#### Implementation Tasks (1-2 days)
+
+- [ ] Create Collection Structure (2-4 hours)
+- [ ] Update Role Metadata (2-4 hours)
+- [ ] Create Collection Documentation (2-4 hours)
+- [ ] Build and Test (4-8 hours)
+- [ ] Publish to Galaxy (1-2 hours)
+- [ ] Update Documentation (2-4 hours)
+- [ ] Automate Publishing (4-8 hours)
+
+#### Installation Methods (Post-Collection)
+
+**Method 1: Ansible Galaxy Collection** (NEW)
+```bash
+ansible-galaxy collection install tosin2013.validated_patterns_toolkit
+```
+
+**Method 2: Direct Repository Clone** (CURRENT - MAINTAINED)
+```bash
+git clone https://github.com/tosin2013/validated-patterns-ansible-toolkit.git
+```
+
+**Method 3: Extract Individual Roles** (CURRENT - MAINTAINED)
+```bash
+cp -r ansible/roles/validated_patterns_prerequisites ~/my-project/roles/
+```
+
+**See**: [ADR-015](./adr/ADR-015-ansible-collection-distribution.md) for complete details
 
 ---
 

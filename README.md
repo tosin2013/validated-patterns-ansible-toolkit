@@ -73,6 +73,11 @@ EOF
 ansible-playbook deploy.yml
 ```
 
+> **🚀 Coming Soon**: Ansible Galaxy Collection
+> In a future release (v1.1.0+), you'll be able to install via:
+> `ansible-galaxy collection install tosin2013.validated_patterns_toolkit`
+> See [ADR-015](docs/adr/ADR-015-ansible-collection-distribution.md) for details.
+
 ### Option 3: Development Workflow (Granular Control)
 
 ```bash

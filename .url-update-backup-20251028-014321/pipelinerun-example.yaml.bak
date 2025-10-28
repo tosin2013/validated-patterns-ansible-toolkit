@@ -1,0 +1,38 @@
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  name: reference-app-run-1
+  namespace: reference-app
+spec:
+  pipelineRef:
+    name: reference-app-pipeline
+
+  params:
+  - name: git-url
+    value: https://github.com/validated-patterns/reference-app.git
+  - name: git-revision
+    value: main
+  - name: image-registry
+    value: quay.io
+  - name: image-namespace
+    value: validated-patterns
+  - name: image-name
+    value: reference-app
+  - name: image-tag
+    value: latest
+  - name: deploy-namespace
+    value: reference-app
+
+  workspaces:
+  - name: shared-workspace
+    volumeClaimTemplate:
+      spec:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1Gi
+
+  serviceAccountName: pipeline-sa
+
+  timeout: 1h

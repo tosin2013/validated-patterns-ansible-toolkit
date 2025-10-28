@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: reference-app
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+  labels:
+    app: reference-app
+    app.kubernetes.io/name: reference-app
+    app.kubernetes.io/part-of: validated-patterns
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8080
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  selector:
+    app: reference-app

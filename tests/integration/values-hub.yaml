@@ -1,0 +1,77 @@
+---
+# Hub cluster configuration for testing
+# Updated to match working deployment configuration
+clusterGroup:
+  name: hub
+  isHubCluster: true
+  targetCluster: in-cluster
+
+  namespaces:
+    - validated-patterns
+    - quarkus-app-dev
+    - quarkus-app-prod
+
+  # Note: OpenShift GitOps is automatically installed by the Validated Patterns Operator
+  # Do not include it in subscriptions to avoid conflicts
+  subscriptions: {}
+
+  applications:
+    quarkus-reference-app-dev:
+      name: quarkus-reference-app-dev
+      namespace: quarkus-app-dev
+      project: default
+      path: quarkus-reference-app/charts/all/quarkus-reference-app
+      repoURL: https://opentlc-mgr:j0sBFggYvrMlHdp0LTtn1VD0so6OlsZI@gitea-with-admin-gitea.apps.cluster-4l957.4l957.sandbox1206.opentlc.com/opentlc-mgr/validated-patterns-ansible-toolkit.git
+      targetRevision: main
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+      # Override chart values to disable namespace creation
+      # The namespace is created by the clustergroup chart above
+      overrides:
+        - name: namespace.create
+          value: "false"
+        - name: namespace.name
+          value: quarkus-app-dev
+        # Enable BuildConfig to build from source
+        - name: build.enabled
+          value: "true"
+        - name: build.git.uri
+          value: https://opentlc-mgr:j0sBFggYvrMlHdp0LTtn1VD0so6OlsZI@gitea-with-admin-gitea.apps.cluster-4l957.4l957.sandbox1206.opentlc.com/opentlc-mgr/validated-patterns-ansible-toolkit.git
+        - name: build.git.ref
+          value: main
+        - name: build.git.contextDir
+          value: quarkus-reference-app
+        - name: config.profile
+          value: dev
+
+    quarkus-reference-app-prod:
+      name: quarkus-reference-app-prod
+      namespace: quarkus-app-prod
+      project: default
+      path: quarkus-reference-app/charts/all/quarkus-reference-app
+      repoURL: https://opentlc-mgr:j0sBFggYvrMlHdp0LTtn1VD0so6OlsZI@gitea-with-admin-gitea.apps.cluster-4l957.4l957.sandbox1206.opentlc.com/opentlc-mgr/validated-patterns-ansible-toolkit.git
+      targetRevision: main
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+      # Override chart values to disable namespace creation
+      # The namespace is created by the clustergroup chart above
+      overrides:
+        - name: namespace.create
+          value: "false"
+        - name: namespace.name
+          value: quarkus-app-prod
+        # Enable BuildConfig to build from source
+        - name: build.enabled
+          value: "true"
+        - name: build.git.uri
+          value: https://opentlc-mgr:j0sBFggYvrMlHdp0LTtn1VD0so6OlsZI@gitea-with-admin-gitea.apps.cluster-4l957.4l957.sandbox1206.opentlc.com/opentlc-mgr/validated-patterns-ansible-toolkit.git
+        - name: build.git.ref
+          value: main
+        - name: build.git.contextDir
+          value: quarkus-reference-app
+        - name: config.profile
+          value: prod

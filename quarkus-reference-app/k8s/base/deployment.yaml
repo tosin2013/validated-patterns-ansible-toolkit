@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: reference-app
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  labels:
+    app: reference-app
+    app.kubernetes.io/name: reference-app
+    app.kubernetes.io/part-of: validated-patterns
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: reference-app
+  template:
+    metadata:
+      labels:
+        app: reference-app
+    spec:
+      serviceAccountName: reference-app
+      containers:
+      - name: reference-app
+        image: quay.io/validated-patterns/reference-app:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        env:
+        - name: QUARKUS_PROFILE
+          value: "prod"
+        - name: APP_CONFIG
+          valueFrom:
+            configMapKeyRef:
+              name: reference-app-config
+              key: app.config
+              optional: true
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 3
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+          failureThreshold: 3
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 1000
+          capabilities:
+            drop:
+            - ALL

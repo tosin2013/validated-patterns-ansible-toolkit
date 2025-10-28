@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.name }}-config
+  namespace: {{ include "quarkus-reference-app.namespace" . }}
+  annotations:
+    argocd.argoproj.io/sync-wave: {{ .Values.syncWaves.configmap | quote }}
+  labels:
+    {{- include "quarkus-reference-app.labels" . | nindent 4 }}
+data:
+  app.config: {{ .Values.config.appConfig | quote }}

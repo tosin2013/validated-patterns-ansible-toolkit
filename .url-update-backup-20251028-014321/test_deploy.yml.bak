@@ -1,0 +1,425 @@
+---
+# Test playbook for validated_patterns_deploy role
+# Purpose: Deploy Quarkus reference application via ArgoCD
+
+- name: Test validated_patterns_deploy Role
+  hosts: localhost
+  gather_facts: yes
+  vars:
+    test_timestamp: "{{ ansible_date_time.iso8601 }}"
+    quarkus_app_name: "quarkus-reference-app"
+    quarkus_app_namespace: "quarkus-dev"
+    # Use openshift-gitops ArgoCD instance (has cluster-admin permissions)
+    argocd_namespace: "openshift-gitops"
+    argocd_instance: "openshift-gitops"
+
+    # Git repository configuration
+    # Default: Use Gitea (local Git server)
+    # Override: Set use_github=true to use GitHub instead
+    use_github: "{{ lookup('env', 'USE_GITHUB') | default('false', true) | bool }}"
+    gitea_hostname: "gitea-with-admin-gitea.apps.cluster-4l957.4l957.sandbox1206.opentlc.com"
+    gitea_repo_name: "ansible-execution-environment"
+    gitea_org: "opentlc-mgr"
+    github_repo_url: "https://github.com/tosin2013/ansible-execution-environment.git"
+
+    # Computed git_repo_url based on use_github flag
+    git_repo_url: "{{ github_repo_url if use_github else 'https://' + gitea_hostname + '/' + gitea_org + '/' + gitea_repo_name + '.git' }}"
+    git_target_revision: "main"
+    # Use Helm chart path (VP framework compliant)
+    helm_chart_path: "quarkus-reference-app/charts/all/quarkus-reference-app"
+
+  tasks:
+    - name: Display test information
+      debug:
+        msg: |
+          ========================================
+          Testing: validated_patterns_deploy Role
+          Timestamp: {{ test_timestamp }}
+          ========================================
+          Git Source: {{ 'GitHub' if use_github else 'Gitea (Local)' }}
+          Repository: {{ git_repo_url }}
+          ========================================
+
+    # ==========================================
+    # Git Repository Validation
+    # ==========================================
+
+    - name: Check if Gitea instance exists (when using Gitea)
+      kubernetes.core.k8s_info:
+        api_version: gpte.opentlc.com/v1
+        kind: Gitea
+        name: gitea-with-admin
+        namespace: gitea
+      register: gitea_instance
+      failed_when: false
+      when: not use_github
+
+    - name: Display Gitea status
+      debug:
+        msg: |
+          {{ '✅' if gitea_instance.resources | length > 0 else '❌' }} Gitea instance: {{ 'Found' if gitea_instance.resources | length > 0 else 'Not found' }}
+          {% if gitea_instance.resources | length > 0 %}
+          URL: https://{{ gitea_hostname }}
+          {% endif %}
+      when: not use_github
+
+    - name: Display Git source information
+      debug:
+        msg: |
+          📦 Git Repository Configuration:
+          - Source: {{ 'GitHub (Public)' if use_github else 'Gitea (Local)' }}
+          - URL: {{ git_repo_url }}
+          - Branch: {{ git_target_revision }}
+          - Helm Chart: {{ helm_chart_path }}
+          - Values: values-global.yaml + values-dev.yaml
+
+          💡 To use GitHub instead, set environment variable:
+             export USE_GITHUB=true
+
+    # ==========================================
+    # Pre-deployment Validation
+    # ==========================================
+
+    - name: Verify ArgoCD instance exists
+      kubernetes.core.k8s_info:
+        api_version: argoproj.io/v1beta1
+        kind: ArgoCD
+        name: "{{ argocd_instance }}"
+        namespace: "{{ argocd_namespace }}"
+      register: argocd_check
+      failed_when: argocd_check.resources | length == 0
+
+    - name: Display ArgoCD status
+      debug:
+        msg: "{{ '✅' if argocd_check.resources | length > 0 else '❌' }} ArgoCD instance '{{ argocd_instance }}' found in namespace '{{ argocd_namespace }}'"
+
+    - name: Check ArgoCD server pod is running
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Pod
+        namespace: "{{ argocd_namespace }}"
+        label_selectors:
+          - "app.kubernetes.io/name={{ argocd_instance }}-server"
+      register: argocd_server_pod
+      failed_when: argocd_server_pod.resources | length == 0
+
+    - name: Display ArgoCD server status
+      debug:
+        msg: "{{ '✅' if argocd_server_pod.resources[0].status.phase == 'Running' else '❌' }} ArgoCD server pod is {{ argocd_server_pod.resources[0].status.phase }}"
+
+    # ==========================================
+    # Deploy Quarkus Application via ArgoCD
+    # ==========================================
+
+    # Clean up any existing failed ArgoCD Application
+    - name: Delete existing ArgoCD Application (if any)
+      kubernetes.core.k8s:
+        api_version: argoproj.io/v1alpha1
+        kind: Application
+        name: "{{ quarkus_app_name }}"
+        namespace: "{{ argocd_namespace }}"
+        state: absent
+      ignore_errors: yes
+
+    # Clean up existing namespace (if any) to start fresh
+    - name: Delete existing namespace (if any)
+      kubernetes.core.k8s:
+        api_version: v1
+        kind: Namespace
+        name: "{{ quarkus_app_namespace }}"
+        state: absent
+      ignore_errors: yes
+
+    - name: Wait for namespace deletion to complete
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Namespace
+        name: "{{ quarkus_app_namespace }}"
+      register: ns_check
+      until: ns_check.resources | length == 0
+      retries: 30
+      delay: 2
+      ignore_errors: yes
+
+    # Note: Namespace creation is handled by ArgoCD via syncPolicy.syncOptions: CreateNamespace=true
+    # This ensures ArgoCD manages the namespace from the start
+
+    - name: Create ArgoCD Application for Quarkus app
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: argoproj.io/v1alpha1
+          kind: Application
+          metadata:
+            name: "{{ quarkus_app_name }}"
+            namespace: "{{ argocd_namespace }}"
+          spec:
+            project: default
+            source:
+              repoURL: "{{ git_repo_url }}"
+              targetRevision: "{{ git_target_revision }}"
+              path: "{{ helm_chart_path }}"
+              helm:
+                # Use values-dev.yaml for development environment
+                # Paths are relative to the source path (chart directory)
+                valueFiles:
+                  - ../../../values-global.yaml
+                  - ../../../values-dev.yaml
+                releaseName: quarkus-reference-app
+            destination:
+              server: https://kubernetes.default.svc
+              namespace: "{{ quarkus_app_namespace }}"
+            syncPolicy:
+              automated:
+                prune: true
+                selfHeal: true
+              syncOptions:
+                - CreateNamespace=true
+      register: app_created
+
+    - name: Display application creation status
+      debug:
+        msg: |
+          {{ '✅' if app_created is changed else '✅' }} ArgoCD Application created:
+          - Name: {{ quarkus_app_name }}
+          - Namespace: {{ argocd_namespace }}
+          - Target: {{ quarkus_app_namespace }}
+
+    # ==========================================
+    # Wait for GitOps Synchronization
+    # ==========================================
+
+    - name: Wait for ArgoCD Application to appear
+      kubernetes.core.k8s_info:
+        api_version: argoproj.io/v1alpha1
+        kind: Application
+        name: "{{ quarkus_app_name }}"
+        namespace: "{{ argocd_namespace }}"
+      register: app_status
+      until: app_status.resources | length > 0
+      retries: 30
+      delay: 10
+
+    - name: Wait for initial sync to start
+      kubernetes.core.k8s_info:
+        api_version: argoproj.io/v1alpha1
+        kind: Application
+        name: "{{ quarkus_app_name }}"
+        namespace: "{{ argocd_namespace }}"
+      register: app_sync_status
+      until: >
+        app_sync_status.resources | length > 0 and
+        app_sync_status.resources[0].status is defined and
+        app_sync_status.resources[0].status.sync is defined
+      retries: 30
+      delay: 10
+
+    - name: Display sync status
+      debug:
+        msg: |
+          Sync Status: {{ app_sync_status.resources[0].status.sync.status | default('Unknown') }}
+          Health Status: {{ app_sync_status.resources[0].status.health.status | default('Unknown') }}
+
+    - name: Wait for ArgoCD Application to sync (up to 5 minutes)
+      kubernetes.core.k8s_info:
+        api_version: argoproj.io/v1alpha1
+        kind: Application
+        name: "{{ quarkus_app_name }}"
+        namespace: "{{ argocd_namespace }}"
+      register: app_final_status
+      until: >
+        app_final_status.resources | length > 0 and
+        app_final_status.resources[0].status.sync.status == 'Synced'
+      retries: 30
+      delay: 10
+      failed_when: false
+
+    - name: Display final sync status
+      debug:
+        msg: |
+          {{ '✅' if app_final_status.resources[0].status.sync.status == 'Synced' else '⚠️' }} Sync Status: {{ app_final_status.resources[0].status.sync.status | default('Unknown') }}
+          {{ '✅' if app_final_status.resources[0].status.health.status == 'Healthy' else '⚠️' }} Health Status: {{ app_final_status.resources[0].status.health.status | default('Unknown') }}
+
+    # ==========================================
+    # Verify Deployment
+    # ==========================================
+
+    - name: Check if Quarkus deployment exists
+      kubernetes.core.k8s_info:
+        api_version: apps/v1
+        kind: Deployment
+        name: "{{ quarkus_app_name }}"
+        namespace: "{{ quarkus_app_namespace }}"
+      register: quarkus_deployment
+      failed_when: false
+
+    - name: Display deployment status
+      debug:
+        msg: |
+          {{ '✅' if quarkus_deployment.resources | length > 0 else '❌' }} Deployment found: {{ quarkus_deployment.resources | length > 0 }}
+          {% if quarkus_deployment.resources | length > 0 %}
+          Replicas: {{ quarkus_deployment.resources[0].status.replicas | default(0) }}
+          Ready Replicas: {{ quarkus_deployment.resources[0].status.readyReplicas | default(0) }}
+          {% endif %}
+
+    - name: Check if Quarkus service exists
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Service
+        name: "{{ quarkus_app_name }}"
+        namespace: "{{ quarkus_app_namespace }}"
+      register: quarkus_service
+      failed_when: false
+
+    - name: Display service status
+      debug:
+        msg: "{{ '✅' if quarkus_service.resources | length > 0 else '❌' }} Service found: {{ quarkus_service.resources | length > 0 }}"
+
+    - name: Check if Quarkus route exists
+      kubernetes.core.k8s_info:
+        api_version: route.openshift.io/v1
+        kind: Route
+        name: "{{ quarkus_app_name }}"
+        namespace: "{{ quarkus_app_namespace }}"
+      register: quarkus_route
+      failed_when: false
+
+    - name: Display route status
+      debug:
+        msg: |
+          {{ '✅' if quarkus_route.resources | length > 0 else '❌' }} Route found: {{ quarkus_route.resources | length > 0 }}
+          {% if quarkus_route.resources | length > 0 %}
+          URL: https://{{ quarkus_route.resources[0].spec.host }}
+          {% endif %}
+
+    # ==========================================
+    # Generate Test Report
+    # ==========================================
+
+    - name: Set test results
+      set_fact:
+        argocd_available: "{{ argocd_check.resources | length > 0 }}"
+        app_created_success: "{{ app_created is changed or app_created is succeeded }}"
+        app_synced: "{{ app_final_status.resources[0].status.sync.status == 'Synced' if app_final_status.resources | length > 0 else false }}"
+        app_healthy: "{{ app_final_status.resources[0].status.health.status == 'Healthy' if app_final_status.resources | length > 0 and app_final_status.resources[0].status.health is defined else false }}"
+        deployment_exists: "{{ quarkus_deployment.resources | length > 0 }}"
+        service_exists: "{{ quarkus_service.resources | length > 0 }}"
+        route_exists: "{{ quarkus_route.resources | length > 0 }}"
+
+    - name: Generate test report
+      copy:
+        dest: "tests/week8/results/deploy_test_report.md"
+        content: |
+          # Test Report: validated_patterns_deploy Role
+
+          **Test Date:** {{ test_timestamp }}
+          **Test Duration:** N/A
+
+          ## Test Summary
+
+          | Test | Status |
+          |------|--------|
+          | ArgoCD Available | {{ '✅ PASSED' if argocd_available else '❌ FAILED' }} |
+          | Application Created | {{ '✅ PASSED' if app_created_success else '❌ FAILED' }} |
+          | GitOps Sync | {{ '✅ PASSED' if app_synced else '⚠️ PARTIAL' }} |
+          | Application Health | {{ '✅ PASSED' if app_healthy else '⚠️ PARTIAL' }} |
+          | Deployment Exists | {{ '✅ PASSED' if deployment_exists else '❌ FAILED' }} |
+          | Service Exists | {{ '✅ PASSED' if service_exists else '❌ FAILED' }} |
+          | Route Exists | {{ '✅ PASSED' if route_exists else '❌ FAILED' }} |
+
+          ## Test Details
+
+          ### ArgoCD Configuration
+          - **Instance:** {{ argocd_instance }}
+          - **Namespace:** {{ argocd_namespace }}
+          - **Status:** {{ '✅ Running' if argocd_available else '❌ Not Available' }}
+
+          ### Application Deployment
+          - **Application Name:** {{ quarkus_app_name }}
+          - **Target Namespace:** {{ quarkus_app_namespace }}
+          - **Git Source:** {{ 'GitHub (Public)' if use_github else 'Gitea (Local)' }}
+          - **Git Repository:** {{ git_repo_url }}
+          - **Git Revision:** {{ git_target_revision }}
+          - **Helm Chart Path:** {{ helm_chart_path }}
+          - **Values Files:** values-global.yaml + values-dev.yaml
+
+          ### Git Repository Configuration
+          This test uses **{{ 'GitHub' if use_github else 'Gitea' }}** as the Git source.
+          {% if not use_github %}
+          - **Gitea Instance:** gitea-with-admin
+          - **Gitea URL:** https://{{ gitea_hostname }}
+          - **Organization:** {{ gitea_org }}
+          - **Repository:** {{ gitea_repo_name }}
+
+          **Note:** To use GitHub instead, set environment variable: `export USE_GITHUB=true`
+          {% else %}
+          - **GitHub Repository:** {{ github_repo_url }}
+
+          **Note:** Using public GitHub repository. To use local Gitea, unset USE_GITHUB or set to false.
+          {% endif %}
+
+          ### GitOps Synchronization
+          - **Sync Status:** {{ app_final_status.resources[0].status.sync.status | default('Unknown') if app_final_status.resources | length > 0 else 'Unknown' }}
+          - **Health Status:** {{ app_final_status.resources[0].status.health.status | default('Unknown') if app_final_status.resources | length > 0 and app_final_status.resources[0].status.health is defined else 'Unknown' }}
+
+          ### Deployed Resources
+          {% if deployment_exists %}
+          - **Deployment:** {{ quarkus_app_name }}
+            - Replicas: {{ quarkus_deployment.resources[0].status.replicas | default(0) }}
+            - Ready: {{ quarkus_deployment.resources[0].status.readyReplicas | default(0) }}
+          {% endif %}
+          {% if service_exists %}
+          - **Service:** {{ quarkus_app_name }}
+          {% endif %}
+          {% if route_exists %}
+          - **Route:** https://{{ quarkus_route.resources[0].spec.host }}
+          {% endif %}
+
+          ## Validation Checks
+
+          1. {{ '✅' if argocd_available else '❌' }} ArgoCD instance available
+          2. {{ '✅' if app_created_success else '❌' }} ArgoCD Application created
+          3. {{ '✅' if app_synced else '⚠️' }} Application synced via GitOps
+          4. {{ '✅' if app_healthy else '⚠️' }} Application health check
+          5. {{ '✅' if deployment_exists else '❌' }} Kubernetes Deployment created
+          6. {{ '✅' if service_exists else '❌' }} Kubernetes Service created
+          7. {{ '✅' if route_exists else '❌' }} OpenShift Route created
+
+          ## Conclusion
+
+          {% if argocd_available and app_created_success and deployment_exists and service_exists %}
+          ✅ **Tests passed successfully!**
+
+          The validated_patterns_deploy role:
+          - Successfully uses existing ArgoCD instance
+          - Creates ArgoCD Application resources
+          - Deploys applications via GitOps
+          - Verifies deployment health
+          {% else %}
+          ⚠️ **Some tests did not complete successfully.**
+
+          Please review the test details above for more information.
+          {% endif %}
+
+          ## Next Steps
+
+          - Proceed to Task 4: Test validated_patterns_gitea role
+          - Verify Git repository integration
+          - Test webhook functionality
+
+    - name: Display test summary
+      debug:
+        msg: |
+          ========================================
+          TEST SUMMARY
+          ========================================
+          ArgoCD Available: {{ '✅ PASSED' if argocd_available else '❌ FAILED' }}
+          Application Created: {{ '✅ PASSED' if app_created_success else '❌ FAILED' }}
+          GitOps Sync: {{ '✅ PASSED' if app_synced else '⚠️ PARTIAL' }}
+          Application Health: {{ '✅ PASSED' if app_healthy else '⚠️ PARTIAL' }}
+          Deployment: {{ '✅ PASSED' if deployment_exists else '❌ FAILED' }}
+          Service: {{ '✅ PASSED' if service_exists else '❌ FAILED' }}
+          Route: {{ '✅ PASSED' if route_exists else '❌ FAILED' }}
+
+          Report saved to: tests/week8/results/deploy_test_report.md
+          ========================================

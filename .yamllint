@@ -1,0 +1,69 @@
+---
+# yamllint configuration for Validated Patterns Toolkit
+# See https://yamllint.readthedocs.io/en/stable/configuration.html
+
+extends: default
+
+rules:
+  # Line length - allow longer lines for URLs and complex expressions
+  line-length:
+    max: 120
+    level: warning
+
+  # Indentation - 2 spaces for YAML
+  indentation:
+    spaces: 2
+    indent-sequences: true
+    check-multi-line-strings: false
+
+  # Comments - require space after #
+  comments:
+    min-spaces-from-content: 1
+
+  # Document start - don't require --- at start
+  document-start:
+    present: false
+
+  # Truthy values - allow yes/no/on/off
+  truthy:
+    allowed-values: ['true', 'false', 'yes', 'no', 'on', 'off']
+    check-keys: false
+
+  # Brackets - allow inline brackets
+  brackets:
+    min-spaces-inside: 0
+    max-spaces-inside: 1
+
+  # Braces - allow inline braces
+  braces:
+    min-spaces-inside: 0
+    max-spaces-inside: 1
+
+  # Empty values - allow null values
+  empty-values:
+    forbid-in-block-mappings: false
+    forbid-in-flow-mappings: false
+
+  # Key duplicates - error on duplicate keys
+  key-duplicates: enable
+
+  # Trailing spaces - error on trailing spaces
+  trailing-spaces: enable
+
+  # New line at end of file
+  new-line-at-end-of-file: enable
+
+# Ignore patterns
+ignore: |
+  # Helm chart templates (contain Go templating)
+  quarkus-reference-app/charts/**/templates/*.yaml
+  quarkus-reference-app/charts/**/templates/*.yml
+  
+  # Generated files
+  .github/workflows/*.yml
+  
+  # External dependencies
+  node_modules/
+  .venv/
+  venv/
+

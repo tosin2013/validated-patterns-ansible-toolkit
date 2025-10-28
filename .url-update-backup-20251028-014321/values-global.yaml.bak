@@ -1,0 +1,23 @@
+---
+# Global pattern configuration for Ansible Execution Environment Pattern
+# NOTE: This is an EXAMPLE file for reference only
+# For actual deployments, copy this to values-global.yaml and customize
+global:
+  pattern: ansible-execution-environment
+  targetRevision: main
+  namespace: openshift-gitops
+
+  options:
+    syncPolicy: Automatic
+    applicationRetryLimit: 20
+    useCSV: false
+
+  git:
+    # DEPRECATED: Gitea configuration (moving to GitHub)
+    # For GitHub deployments, use GitHub URLs directly in values-hub.yaml
+    hostname: git.example.com
+    account: your-username
+    email: your-email@example.com
+    dev_revision: main
+    username: your-username
+    token: "REPLACE_WITH_YOUR_TOKEN"  # Use environment variable: {{ lookup('env', 'GIT_TOKEN') }}

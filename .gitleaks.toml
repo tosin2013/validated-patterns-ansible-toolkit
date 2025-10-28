@@ -1,0 +1,123 @@
+title = "Validated Patterns Toolkit - Gitleaks Configuration"
+
+# Extend default gitleaks rules
+[extend]
+useDefault = true
+
+# Custom rules for Validated Patterns specific secrets
+[[rules]]
+id = "validated-patterns-token"
+description = "Validated Patterns API Token"
+regex = '''(?i)(vp_token|pattern_token|gitea_token)[\s]*[=:][\s]*['"]?[a-zA-Z0-9]{20,}['"]?'''
+tags = ["validated-patterns", "token"]
+
+[[rules]]
+id = "ansible-vault-password"
+description = "Ansible Vault Password"
+regex = '''(?i)(vault_password|vault_pass)[\s]*[=:][\s]*['"]?[a-zA-Z0-9]{8,}['"]?'''
+tags = ["ansible", "vault"]
+
+[[rules]]
+id = "ansible-hub-token"
+description = "Ansible Automation Hub Token"
+regex = '''(?i)(ANSIBLE_HUB_TOKEN|ansible_hub_token)[\s]*[=:][\s]*['"]?[a-zA-Z0-9_-]{20,}['"]?'''
+tags = ["ansible", "hub", "token"]
+
+[[rules]]
+id = "openshift-token"
+description = "OpenShift API Token"
+regex = '''(?i)(openshift_token|oc_token|k8s_token)[\s]*[=:][\s]*['"]?sha256~[a-zA-Z0-9_-]{43}['"]?'''
+tags = ["openshift", "kubernetes", "token"]
+
+[[rules]]
+id = "quay-token"
+description = "Quay.io Registry Token"
+regex = '''(?i)(quay_token|quay_password|QUAY_PASSWORD)[\s]*[=:][\s]*['"]?[a-zA-Z0-9+/=]{20,}['"]?'''
+tags = ["quay", "registry", "token"]
+
+[[rules]]
+id = "redhat-registry-password"
+description = "Red Hat Registry Password"
+regex = '''(?i)(REDHAT_REGISTRY_PASSWORD|redhat_registry_password)[\s]*[=:][\s]*['"]?[a-zA-Z0-9+/=]{20,}['"]?'''
+tags = ["redhat", "registry", "password"]
+
+[[rules]]
+id = "rhsm-activation-key"
+description = "Red Hat Subscription Manager Activation Key"
+regex = '''(?i)(rhsm_activation_key|activation_key)[\s]*[=:][\s]*['"]?[a-zA-Z0-9]{16,}['"]?'''
+tags = ["rhsm", "subscription", "key"]
+
+[[rules]]
+id = "gitea-admin-password"
+description = "Gitea Admin Password"
+regex = '''(?i)(gitea_admin_password|gitea_password)[\s]*[=:][\s]*['"]?[a-zA-Z0-9!@#$%^&*]{8,}['"]?'''
+tags = ["gitea", "password"]
+
+# Allowlist for test files, templates, and examples
+[allowlist]
+description = "Allowlist for test files, templates, examples, and documentation"
+
+# Paths to ignore (regex patterns)
+paths = [
+    # Test files and examples
+    '''tests/.*\.example$''',
+    '''tests/.*\.sample$''',
+    '''.*\.template$''',
+    '''.*\.example\.ya?ml$''',
+    
+    # Template files that should contain placeholder secrets
+    '''values-secrets\.yaml\.template$''',
+    '''.*-secrets\.yaml\.template$''',
+    
+    # Documentation files (may contain example secrets for illustration)
+    '''docs/.*\.md$''',
+    '''README\.md$''',
+    '''CONTRIBUTING\.md$''',
+    
+    # CI/CD workflow files (may reference secret names, not values)
+    '''\.github/workflows/.*\.ya?ml$''',
+    
+    # ADR files (architectural decisions may discuss secrets management)
+    '''docs/adr/.*\.md$''',
+]
+
+# Regexes to ignore (for specific patterns that are false positives)
+regexes = [
+    # Example tokens in documentation
+    '''example[_-]?token''',
+    '''sample[_-]?token''',
+    '''placeholder[_-]?token''',
+    '''your[_-]?token[_-]?here''',
+    '''<TOKEN>''',
+    '''\$\{TOKEN\}''',
+    '''\{\{.*token.*\}\}''',
+    
+    # Ansible variable references (not actual secrets)
+    '''\{\{.*vault.*\}\}''',
+    '''\{\{.*password.*\}\}''',
+    '''\{\{.*secret.*\}\}''',
+    
+    # Environment variable references
+    '''\$\{?[A-Z_]+\}?''',
+    
+    # Base64 encoded placeholders
+    '''Y2hhbmdlbWU=''',  # "changeme" in base64
+    '''cGxhY2Vob2xkZXI=''',  # "placeholder" in base64
+]
+
+# Stopwords to ignore (common false positives)
+stopwords = [
+    "example",
+    "sample",
+    "placeholder",
+    "changeme",
+    "your-token-here",
+    "replace-with-your-token",
+    "insert-token-here",
+]
+
+# Additional configuration
+# Note: Commits and specific file paths can be added to the allowlist above if needed
+# Example for commits: Add commit hash to [allowlist] section
+# Example for specific files: Add to paths array in [allowlist] section
+

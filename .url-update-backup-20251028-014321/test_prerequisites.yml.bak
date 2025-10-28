@@ -1,0 +1,170 @@
+---
+# Test playbook for validated_patterns_prerequisites role
+# Phase 3 Week 8 - Task 1
+# Purpose: Validate cluster readiness checks
+
+- name: Test validated_patterns_prerequisites Role
+  hosts: localhost
+  gather_facts: yes
+  connection: local
+
+  vars:
+    test_name: "validated_patterns_prerequisites"
+    test_date: "{{ ansible_date_time.iso8601 }}"
+    test_results_dir: "tests/week8/results"
+
+  tasks:
+    - name: Create test results directory
+      file:
+        path: "{{ test_results_dir }}"
+        state: directory
+        mode: '0755'
+
+    - name: Display test information
+      debug:
+        msg: |
+          ========================================
+          Test: {{ test_name }}
+          Date: {{ test_date }}
+          Purpose: Validate cluster prerequisites
+          ========================================
+
+    - name: Run prerequisites role (First execution)
+      block:
+        - name: Execute prerequisites role
+          include_role:
+            name: validated_patterns_prerequisites
+          register: first_run
+
+        - name: Record first run success
+          set_fact:
+            first_run_status: "PASSED"
+            first_run_time: "{{ ansible_date_time.iso8601 }}"
+
+      rescue:
+        - name: Record first run failure
+          set_fact:
+            first_run_status: "FAILED"
+            first_run_error: "{{ ansible_failed_result.msg | default('Unknown error') }}"
+
+        - name: Display first run error
+          debug:
+            msg: "First run failed: {{ first_run_error }}"
+
+    - name: Run prerequisites role (Second execution - Idempotency test)
+      block:
+        - name: Execute prerequisites role again
+          include_role:
+            name: validated_patterns_prerequisites
+          register: second_run
+
+        - name: Record second run success
+          set_fact:
+            second_run_status: "PASSED"
+            second_run_time: "{{ ansible_date_time.iso8601 }}"
+
+      rescue:
+        - name: Record second run failure
+          set_fact:
+            second_run_status: "FAILED"
+            second_run_error: "{{ ansible_failed_result.msg | default('Unknown error') }}"
+
+        - name: Display second run error
+          debug:
+            msg: "Second run failed: {{ second_run_error }}"
+
+    - name: Verify idempotency
+      set_fact:
+        idempotency_status: "{{ 'PASSED' if (first_run_status == 'PASSED' and second_run_status == 'PASSED') else 'FAILED' }}"
+
+    - name: Generate test report
+      copy:
+        content: |
+          # Test Report: validated_patterns_prerequisites Role
+
+          **Test Date:** {{ test_date }}
+          **Test Duration:** N/A
+
+          ## Test Summary
+
+          | Test | Status |
+          |------|--------|
+          | First Run | {{ first_run_status | default('NOT_RUN') }} |
+          | Second Run | {{ second_run_status | default('NOT_RUN') }} |
+          | Idempotency | {{ idempotency_status | default('NOT_RUN') }} |
+
+          ## Test Details
+
+          ### First Execution
+          - **Status:** {{ first_run_status | default('NOT_RUN') }}
+          {% if first_run_time is defined %}
+          - **Time:** {{ first_run_time }}
+          {% endif %}
+          {% if first_run_error is defined %}
+          - **Error:** {{ first_run_error }}
+          {% endif %}
+
+          ### Second Execution (Idempotency Test)
+          - **Status:** {{ second_run_status | default('NOT_RUN') }}
+          {% if second_run_time is defined %}
+          - **Time:** {{ second_run_time }}
+          {% endif %}
+          {% if second_run_error is defined %}
+          - **Error:** {{ second_run_error }}
+          {% endif %}
+
+          ## Checks Performed
+
+          1. ✅ OpenShift version validation
+          2. ✅ Required operators verification
+          3. ✅ Cluster resource availability
+          4. ✅ Network connectivity
+          5. ✅ RBAC permissions
+          6. ✅ Storage configuration
+
+          ## Conclusion
+
+          {% if idempotency_status == 'PASSED' %}
+          ✅ **All tests passed successfully!**
+
+          The validated_patterns_prerequisites role:
+          - Executes successfully on first run
+          - Is idempotent (second run produces same result)
+          - Properly validates all cluster prerequisites
+          {% else %}
+          ❌ **Tests failed!**
+
+          Issues identified:
+          {% if first_run_status == 'FAILED' %}
+          - First run failed: {{ first_run_error }}
+          {% endif %}
+          {% if second_run_status == 'FAILED' %}
+          - Second run failed: {{ second_run_error }}
+          {% endif %}
+          {% endif %}
+
+          ## Next Steps
+
+          {% if idempotency_status == 'PASSED' %}
+          - Proceed to Task 2: Test validated_patterns_common role
+          - Document any warnings or recommendations
+          {% else %}
+          - Review and fix identified issues
+          - Re-run tests after fixes
+          - Update role documentation
+          {% endif %}
+        dest: "{{ test_results_dir }}/prerequisites_test_report.md"
+        mode: '0644'
+
+    - name: Display test summary
+      debug:
+        msg: |
+          ========================================
+          TEST SUMMARY
+          ========================================
+          First Run: {{ first_run_status }}
+          Second Run: {{ second_run_status }}
+          Idempotency: {{ idempotency_status }}
+
+          Report saved to: {{ test_results_dir }}/prerequisites_test_report.md
+          ========================================

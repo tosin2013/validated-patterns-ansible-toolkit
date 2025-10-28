@@ -1,0 +1,20 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: reference-app
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+  labels:
+    app: reference-app
+    app.kubernetes.io/name: reference-app
+    app.kubernetes.io/part-of: validated-patterns
+spec:
+  to:
+    kind: Service
+    name: reference-app
+    weight: 100
+  port:
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

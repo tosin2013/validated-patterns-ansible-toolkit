@@ -1,0 +1,257 @@
+# llms.txt — LLM usage preferences for this repository
+# Spec: https://llmstxt.org (human-readable policy; parsers should be tolerant)
+
+version: 1
+owner: tosin2013
+contact: maintainers via GitHub Issues
+updated: 2025-10-27
+
+# ============================================================================
+# PROJECT CONTEXT: Validated Patterns Toolkit
+# ============================================================================
+
+# WHAT IS THIS REPOSITORY?
+# This is a REFERENCE IMPLEMENTATION and REUSABLE TOOLKIT for deploying
+# Validated Patterns on OpenShift. It provides:
+#
+# - 7 Production-Ready Ansible Roles (reusable, copy into your projects)
+# - Reference Application Examples (Quarkus, OpenShift AI, any workload)
+# - Dual-Workflow Architecture (Development + End-User paths)
+# - Complete Diataxis Documentation (tutorials, how-tos, references, explanations)
+# - Execution Environment (container infrastructure for running Ansible roles)
+
+# HOW PEOPLE USE THIS REPOSITORY:
+# ✅ Clone/fork to deploy their own Validated Patterns
+# ✅ Copy individual Ansible roles into their own automation projects
+# ✅ Use as template for building similar toolkits
+# ✅ Reference implementation for various workloads (Quarkus, AI, custom apps)
+# ✅ Extend and customize under GPL v3.0 license
+
+# PROJECT GOALS:
+# 1. Provide reusable, production-ready Ansible roles for Validated Patterns
+# 2. Enable users to easily extract and use roles in their own projects
+# 3. Support multiple application types (not just Quarkus)
+# 4. Maintain comprehensive documentation (Diataxis framework)
+# 5. Demonstrate best practices for pattern deployment on OpenShift
+
+# REPOSITORY MIGRATION (v1.0 Release):
+# - OLD: tosin2013/ansible-execution-environment
+# - NEW: tosin2013/validated-patterns-ansible-toolkit
+# - Reason: Better reflects toolkit nature and reusability focus
+
+# LICENSE: GNU General Public License v3.0
+# - Allows copying, modification, and distribution
+# - Requires disclosure of source and license inclusion
+
+# General guidance
+# - This repository is open source; learning from docs and code is allowed.
+# - Do not ingest or retain secrets. Honor the disallow list below.
+# - Focus on reusability: roles can be used independently or together.
+# - Quarkus app is ONE example; users can deploy notebooks, AI workloads, or any app.
+
+allow:
+  - /
+
+disallow:
+  # Secrets and local tokens
+  - /token
+  - /files/optional-configs/
+
+  # Build outputs and temp artifacts
+  - /context/
+  - /collections/
+  - /site/
+  - /.venv-docs/
+  - /.mkdocs-server.log
+
+  # VCS internals
+  - /.git/
+
+# ============================================================================
+# PRIORITY DOCUMENTS FOR LLM AGENTS
+# ============================================================================
+
+priority:
+  # Start here for project understanding
+  - /README.md                              # Project overview and quick start
+  - /AGENTS.md                              # Agent-specific development rules
+  - /docs/RELEASE-PLAN.md                   # v1.0 release plan and goals
+  - /docs/RELEASE-QUICK-REFERENCE.md        # Quick reference card
+
+  # Core architecture and decisions
+  - /docs/adr/ADR-001-project-vision-and-scope.md  # Project vision
+  - /docs/adr/ADR-002-ansible-role-architecture.md # Role architecture
+  - /docs/adr/ADR-003-validation-framework.md      # Validation approach
+  - /docs/ARCHITECTURE-DIAGRAMS.md          # Visual architecture
+
+  # User guides (dual-workflow)
+  - /docs/DEVELOPER-GUIDE.md                # Development workflow (roles 1-2, 4-7)
+  - /docs/END-USER-GUIDE.md                 # End-user workflow (role 3)
+  - /docs/GUIDES-INDEX.md                   # All guides index
+
+  # Implementation and status
+  - /docs/IMPLEMENTATION-PLAN.md            # 16-week implementation plan
+  - /docs/PHASE-2.5-COMPLETE.md             # Current phase status
+
+  # Ansible roles (core value)
+  - /ansible/roles/                         # 7 production-ready roles
+  - /docs/ANSIBLE-ROLES-REFERENCE.md        # Roles reference guide
+  - /docs/QUICK-START-ROLES.md              # Quick start for roles
+
+  # Reference applications
+  - /quarkus-reference-app/                 # Quarkus example (ONE example)
+  - /docs/adr/ADR-004-quarkus-reference-application.md
+  - /docs/adr/ADR-009-openshift-ai-validation.md   # OpenShift AI example
+
+  # Build and deployment
+  - /execution-environment.yml              # EE configuration
+  - /Makefile                               # Build commands
+  - /ansible-navigator.yml                  # Ansible Navigator config
+  - /values-global.yaml                     # Global configuration
+  - /values-hub.yaml                        # Hub configuration
+
+# ============================================================================
+# ANSIBLE ROLES (Core Value - Reusable Components)
+# ============================================================================
+
+# 7 Production-Ready Ansible Roles (3,460+ LOC):
+# 1. validated_patterns_prerequisites - Cluster validation
+#    Location: /ansible/roles/validated_patterns_prerequisites/
+#    Purpose: Validate OpenShift version, operators, resources
+#    Reusable: Yes, copy into any project
+#
+# 2. validated_patterns_common - Helm and GitOps infrastructure
+#    Location: /ansible/roles/validated_patterns_common/
+#    Purpose: Install Helm, ArgoCD, clustergroup chart
+#    Reusable: Yes, foundational infrastructure
+#
+# 3. validated_patterns_operator - VP Operator wrapper (simplified)
+#    Location: /ansible/roles/validated_patterns_operator/
+#    Purpose: Simplified end-user deployment via VP Operator
+#    Reusable: Yes, for end-user workflows
+#
+# 4. validated_patterns_deploy - Application deployment
+#    Location: /ansible/roles/validated_patterns_deploy/
+#    Purpose: Deploy applications via ArgoCD, BuildConfigs
+#    Reusable: Yes, adapt for any application
+#
+# 5. validated_patterns_gitea - Git repository management
+#    Location: /ansible/roles/validated_patterns_gitea/
+#    Purpose: Local development environment with Gitea
+#    Reusable: Yes, for local testing
+#
+# 6. validated_patterns_secrets - Secrets management
+#    Location: /ansible/roles/validated_patterns_secrets/
+#    Purpose: Sealed secrets, RBAC, secret management
+#    Reusable: Yes, security best practices
+#
+# 7. validated_patterns_validate - Comprehensive validation
+#    Location: /ansible/roles/validated_patterns_validate/
+#    Purpose: Pre/post deployment validation, health checks
+#    Reusable: Yes, validation framework
+
+# ============================================================================
+# REFERENCE APPLICATIONS (Examples - Not the Only Options)
+# ============================================================================
+
+# Quarkus Reference App (Included Example):
+# - Location: /quarkus-reference-app/
+# - Purpose: Example REST API application
+# - Note: This is ONE example; users can deploy any containerized application
+# - Includes: Helm charts, Tekton pipelines, multi-environment support
+
+# OpenShift AI Validation (Infrastructure Validation):
+# - Location: /docs/adr/ADR-009-openshift-ai-validation.md
+# - Purpose: Validate RHOAI platform readiness
+# - Validates: Notebooks, pipelines, model serving infrastructure
+# - Note: Validates platform, not sample applications
+
+# Users Can Deploy:
+# - Python Flask/Django applications
+# - Node.js applications
+# - Spring Boot applications
+# - OpenShift AI notebooks and pipelines
+# - Machine learning workloads
+# - Data processing applications
+# - Static websites
+# - Any containerized application
+
+# ============================================================================
+# DUAL-WORKFLOW ARCHITECTURE
+# ============================================================================
+
+# Development Workflow (Granular Control):
+# - Uses: Roles 1-2, 4-7
+# - Audience: Pattern developers, maintainers, advanced users
+# - Guide: /docs/DEVELOPER-GUIDE.md
+# - Purpose: Full control over deployment process
+
+# End-User Workflow (Simplified):
+# - Uses: Role 3 (VP Operator)
+# - Audience: Pattern consumers, production deployments
+# - Guide: /docs/END-USER-GUIDE.md
+# - Purpose: Simplified deployment via Validated Patterns Operator
+
+# ============================================================================
+# DOCUMENTATION STRUCTURE (Diataxis Framework)
+# ============================================================================
+
+# Tutorials (Learning-oriented):
+# - /docs/tutorials/
+
+# How-To Guides (Task-oriented):
+# - /docs/how-to/
+
+# Reference (Information-oriented):
+# - /docs/reference/
+
+# Explanation (Understanding-oriented):
+# - /docs/explanation/
+
+# Architectural Decision Records (ADRs):
+# - /docs/adr/ (13 ADRs documenting key decisions)
+
+# ============================================================================
+# NOTES TO LLM TOOLS/AGENTS
+# ============================================================================
+
+# IMPORTANT CONTEXT:
+# 1. This is a REFERENCE IMPLEMENTATION - users will clone/fork/copy code
+# 2. Ansible roles are REUSABLE - can be used independently or together
+# 3. Quarkus app is ONE EXAMPLE - not the only application type
+# 4. EE building is INFRASTRUCTURE - not the primary focus
+# 5. GPL v3.0 LICENSE - allows copying and modification
+
+# WHEN WORKING WITH THIS REPOSITORY:
+# - Focus on reusability: make roles easy to extract and use
+# - Document multiple application examples (not just Quarkus)
+# - Preserve dual-workflow architecture (development + end-user)
+# - Follow Diataxis documentation framework
+# - Respect ADR decisions (see /docs/adr/)
+# - Use AGENTS.md for development rules and conventions
+
+# COMMON TASKS:
+# - Adding new roles: Follow ADR-002 architecture
+# - Adding new applications: Follow Quarkus example structure
+# - Updating documentation: Use Diataxis categories
+# - Making architectural decisions: Create new ADR
+# - Testing changes: Use Makefile targets (build, test, validate)
+
+# SECURITY:
+# - Do not request or store RHSM activation keys or Hub tokens
+# - Use pre-commit hooks with gitleaks (v1.0 release)
+# - Follow security best practices in validated_patterns_secrets role
+# - Validate RBAC and network policies
+
+# BUILD AND TEST:
+# - make clean      # Remove build artifacts
+# - make token      # Verify ANSIBLE_HUB_TOKEN
+# - make build      # Build EE image
+# - make test       # Run playbook with ansible-navigator
+# - make lint       # Run yamllint
+# - make publish    # Push image to registry
+
+# DEPLOYMENT:
+# - Development: ansible-playbook ansible/playbooks/deploy_complete_pattern.yml
+# - End-User: Use VP Operator (see END-USER-GUIDE.md)
+# - Testing: See /tests/ directory for integration tests

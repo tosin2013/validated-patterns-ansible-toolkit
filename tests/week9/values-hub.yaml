@@ -1,0 +1,43 @@
+---
+# Hub cluster configuration for testing
+clusterGroup:
+  name: hub
+  isHubCluster: true
+  targetCluster: local-cluster
+
+  namespaces:
+    - validated-patterns
+    - quarkus-app-dev
+    - quarkus-app-prod
+
+  subscriptions:
+    openshift-gitops:
+      name: openshift-gitops-operator
+      namespace: openshift-operators
+      channel: latest
+      source: redhat-operators
+
+  applications:
+    quarkus-reference-app-dev:
+      name: quarkus-reference-app
+      namespace: quarkus-app-dev
+      project: default
+      path: quarkus-reference-app/k8s/overlays/dev
+      repoURL: https://github.com/tosin2013/validated-patterns-ansible-toolkit.git
+      targetRevision: main
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+
+    quarkus-reference-app-prod:
+      name: quarkus-reference-app
+      namespace: quarkus-app-prod
+      project: default
+      path: quarkus-reference-app/k8s/overlays/prod
+      repoURL: https://github.com/tosin2013/validated-patterns-ansible-toolkit.git
+      targetRevision: main
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true

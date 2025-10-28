@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.name }}
+  namespace: {{ include "quarkus-reference-app.namespace" . }}
+  annotations:
+    argocd.argoproj.io/sync-wave: {{ .Values.syncWaves.service | quote }}
+  labels:
+    {{- include "quarkus-reference-app.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+  - port: {{ .Values.service.port }}
+    targetPort: {{ .Values.service.targetPort }}
+    protocol: {{ .Values.service.protocol }}
+    name: {{ .Values.service.name }}
+  selector:
+    {{- include "quarkus-reference-app.selectorLabels" . | nindent 4 }}

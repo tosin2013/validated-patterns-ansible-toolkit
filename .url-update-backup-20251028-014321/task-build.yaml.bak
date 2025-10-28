@@ -1,0 +1,99 @@
+apiVersion: tekton.dev/v1beta1
+kind: Task
+metadata:
+  name: reference-app-build
+  namespace: reference-app
+spec:
+  description: Build Quarkus reference application with Maven
+
+  params:
+  - name: MAVEN_IMAGE
+    type: string
+    description: Maven container image
+    default: maven:3.8-openjdk-17
+  - name: GOALS
+    type: array
+    description: Maven goals to run
+    default:
+    - clean
+    - package
+    - -DskipTests
+  - name: MAVEN_MIRROR_URL
+    type: string
+    description: Maven mirror URL
+    default: ""
+
+  workspaces:
+  - name: source
+    description: Source code workspace
+
+  steps:
+  - name: build
+    image: $(params.MAVEN_IMAGE)
+    workingDir: $(workspaces.source.path)
+    env:
+    - name: MAVEN_OPTS
+      value: "-Xmx512m"
+    - name: MAVEN_MIRROR_URL
+      value: $(params.MAVEN_MIRROR_URL)
+    command:
+    - /bin/bash
+    - -c
+    args:
+    - |
+      set -e
+
+      echo "Building Quarkus reference application..."
+
+      # Configure Maven mirror if provided
+      if [ -n "$MAVEN_MIRROR_URL" ]; then
+        echo "Using Maven mirror: $MAVEN_MIRROR_URL"
+        mkdir -p ~/.m2
+        cat > ~/.m2/settings.xml <<EOF
+      <settings>
+        <mirrors>
+          <mirror>
+            <id>central</id>
+            <name>Central Repository</name>
+            <url>$MAVEN_MIRROR_URL</url>
+            <mirrorOf>central</mirrorOf>
+          </mirror>
+        </mirrors>
+      </settings>
+      EOF
+      fi
+
+      # Run Maven build
+      mvn $(echo "$(params.GOALS)" | tr ',' ' ')
+
+      echo "Build completed successfully!"
+
+      # Display build artifacts
+      ls -lh target/quarkus-app/
+
+  - name: verify-build
+    image: $(params.MAVEN_IMAGE)
+    workingDir: $(workspaces.source.path)
+    command:
+    - /bin/bash
+    - -c
+    args:
+    - |
+      set -e
+
+      echo "Verifying build artifacts..."
+
+      # Check JAR exists
+      if [ ! -f target/quarkus-app/quarkus-run.jar ]; then
+        echo "ERROR: quarkus-run.jar not found!"
+        exit 1
+      fi
+
+      # Check lib directory
+      if [ ! -d target/quarkus-app/lib ]; then
+        echo "ERROR: lib directory not found!"
+        exit 1
+      fi
+
+      echo "Build verification passed!"
+      echo "JAR size: $(du -h target/quarkus-app/quarkus-run.jar | cut -f1)"

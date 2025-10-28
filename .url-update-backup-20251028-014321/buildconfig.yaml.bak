@@ -1,0 +1,127 @@
+{{- if .Values.build.enabled }}
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: {{ .Values.name }}
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "quarkus-reference-app.labels" . | nindent 4 }}
+    app.kubernetes.io/component: build
+  annotations:
+    {{- include "quarkus-reference-app.annotations" . | nindent 4 }}
+    argocd.argoproj.io/sync-wave: {{ .Values.syncWaves.buildconfig | default "-2" | quote }}
+spec:
+  # Build output - push to internal registry
+  output:
+    to:
+      kind: ImageStreamTag
+      name: {{ .Values.name }}:{{ .Values.build.outputTag | default "latest" }}
+
+  # Build source - Git repository
+  source:
+    type: Git
+    git:
+      uri: {{ .Values.build.git.uri }}
+      ref: {{ .Values.build.git.ref | default "main" }}
+    contextDir: {{ .Values.build.git.contextDir | default "quarkus-reference-app" }}
+
+  # Build strategy - Source (S2I) build for Quarkus/Maven
+  strategy:
+    type: Source
+    sourceStrategy:
+      from:
+        kind: ImageStreamTag
+        namespace: openshift
+        name: java:openjdk-17-ubi8
+      # Maven build environment variables
+      env:
+        - name: MAVEN_ARGS
+          value: {{ .Values.build.mavenArgs | default "clean package -DskipTests" | quote }}
+        - name: MAVEN_MIRROR_URL
+          value: {{ .Values.build.mavenMirrorUrl | default "" | quote }}
+      # Use internal registry for base images
+      {{- if .Values.build.pullSecret }}
+      pullSecret:
+        name: {{ .Values.build.pullSecret }}
+      {{- end }}
+
+  # Build triggers
+  triggers:
+  {{- if .Values.build.triggers.configChange }}
+  - type: ConfigChange
+  {{- end }}
+  {{- if .Values.build.triggers.imageChange }}
+  - type: ImageChange
+    imageChange: {}
+  {{- end }}
+  {{- if .Values.build.triggers.webhook }}
+  - type: Generic
+    generic:
+      secretReference:
+        name: {{ .Values.name }}-webhook-secret
+  {{- end }}
+
+  # Build resources
+  resources:
+    limits:
+      cpu: {{ .Values.build.resources.limits.cpu | default "2" }}
+      memory: {{ .Values.build.resources.limits.memory | default "4Gi" }}
+    requests:
+      cpu: {{ .Values.build.resources.requests.cpu | default "500m" }}
+      memory: {{ .Values.build.resources.requests.memory | default "2Gi" }}
+
+  # Build completion deadline (30 minutes)
+  completionDeadlineSeconds: {{ .Values.build.completionDeadlineSeconds | default 1800 }}
+
+  # Keep last 3 successful and 3 failed builds
+  successfulBuildsHistoryLimit: {{ .Values.build.successfulBuildsHistoryLimit | default 3 }}
+  failedBuildsHistoryLimit: {{ .Values.build.failedBuildsHistoryLimit | default 3 }}
+
+---
+# ImageStream for the built application
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: {{ .Values.name }}
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "quarkus-reference-app.labels" . | nindent 4 }}
+    app.kubernetes.io/component: build
+  annotations:
+    {{- include "quarkus-reference-app.annotations" . | nindent 4 }}
+    argocd.argoproj.io/sync-wave: {{ .Values.syncWaves.imagestream | default "-3" | quote }}
+spec:
+  lookupPolicy:
+    local: true
+  tags:
+  - name: {{ .Values.build.outputTag | default "latest" }}
+    annotations:
+      description: "Quarkus reference application built from source"
+    from:
+      kind: DockerImage
+      name: {{ .Values.name }}:{{ .Values.build.outputTag | default "latest" }}
+    importPolicy:
+      scheduled: false
+    referencePolicy:
+      type: Local
+
+{{- if .Values.build.triggers.webhook }}
+---
+# Webhook secret for triggering builds
+apiVersion: v1
+kind: Secret
+metadata:
+  name: {{ .Values.name }}-webhook-secret
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "quarkus-reference-app.labels" . | nindent 4 }}
+  annotations:
+    {{- include "quarkus-reference-app.annotations" . | nindent 4 }}
+    argocd.argoproj.io/sync-wave: {{ .Values.syncWaves.secret | default "-2" | quote }}
+type: Opaque
+stringData:
+  WebHookSecretKey: {{ .Values.build.webhookSecret | default (randAlphaNum 32) }}
+{{- end }}
+
+{{- end }}

@@ -1,0 +1,21 @@
+---
+# Defaults for validated_patterns_common role
+
+# rhvp.cluster_utils collection version
+validated_patterns_rhvp_collection_version: "1.0.0"
+
+# clustergroup-chart version (must be 0.9.*)
+validated_patterns_clustergroup_chart_version: "0.9.*"
+
+# Pattern name
+validated_patterns_pattern_name: "common"
+
+# Target revision for GitOps
+validated_patterns_target_revision: "main"
+
+# Multisource configuration
+validated_patterns_multisource_enabled: true
+
+# GitOps configuration (matches VP Operator)
+validated_patterns_gitops_namespace: "openshift-gitops"
+validated_patterns_argocd_instance_name: "openshift-gitops"

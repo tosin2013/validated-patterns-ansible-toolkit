@@ -1,0 +1,17 @@
+---
+# Global pattern configuration for testing
+global:
+  pattern: validated-patterns-ansible-toolkit
+  targetRevision: main
+  namespace: openshift-gitops
+
+  options:
+    syncPolicy: Automatic
+    applicationRetryLimit: 20
+    useCSV: false
+
+  git:
+    hostname: github.com
+    account: tosin2013
+    email: tosin.akinosho@gmail.com
+    dev_revision: main

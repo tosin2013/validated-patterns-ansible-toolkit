@@ -1,0 +1,68 @@
+# Test Report: validated_patterns_deploy Role
+
+**Test Date:** 2025-10-25T22:42:27Z
+**Test Duration:** N/A
+
+## Test Summary
+
+| Test | Status |
+|------|--------|
+| ArgoCD Available | ✅ PASSED |
+| Application Created | ✅ PASSED |
+| GitOps Sync | ⚠️ PARTIAL |
+| Application Health | ⚠️ PARTIAL |
+| Deployment Exists | ❌ FAILED |
+| Service Exists | ❌ FAILED |
+| Route Exists | ❌ FAILED |
+
+## Test Details
+
+### ArgoCD Configuration
+- **Instance:** common-gitops
+- **Namespace:** common-common
+- **Status:** ✅ Running
+
+### Application Deployment
+- **Application Name:** quarkus-reference-app
+- **Target Namespace:** quarkus-dev
+- **Git Source:** Gitea (Local)
+- **Git Repository:** https://gitea-with-admin-gitea.apps.cluster-4l957.4l957.sandbox1206.opentlc.com/opentlc-mgr/validated-patterns-ansible-toolkit.git
+- **Git Revision:** main
+- **Kustomize Path:** quarkus-reference-app/k8s/overlays/dev
+
+### Git Repository Configuration
+This test uses **Gitea** as the Git source.
+- **Gitea Instance:** gitea-with-admin
+- **Gitea URL:** https://gitea-with-admin-gitea.apps.cluster-4l957.4l957.sandbox1206.opentlc.com
+- **Organization:** opentlc-mgr
+- **Repository:** validated-patterns-ansible-toolkit
+
+**Note:** To use GitHub instead, set environment variable: `export USE_GITHUB=true`
+
+### GitOps Synchronization
+- **Sync Status:** Unknown
+- **Health Status:** Missing
+
+### Deployed Resources
+
+## Validation Checks
+
+1. ✅ ArgoCD instance available
+2. ✅ ArgoCD Application created
+3. ⚠️ Application synced via GitOps
+4. ⚠️ Application health check
+5. ❌ Kubernetes Deployment created
+6. ❌ Kubernetes Service created
+7. ❌ OpenShift Route created
+
+## Conclusion
+
+⚠️ **Some tests did not complete successfully.**
+
+Please review the test details above for more information.
+
+## Next Steps
+
+- Proceed to Task 4: Test validated_patterns_gitea role
+- Verify Git repository integration
+- Test webhook functionality

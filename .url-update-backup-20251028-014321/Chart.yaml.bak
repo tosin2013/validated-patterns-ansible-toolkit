@@ -1,0 +1,25 @@
+apiVersion: v2
+name: quarkus-reference-app
+description: Quarkus Reference Application for Validated Patterns
+type: application
+version: 1.0.0
+appVersion: "1.0"
+keywords:
+  - quarkus
+  - reference
+  - validated-patterns
+  - openshift
+  - gitops
+maintainers:
+  - name: Validated Patterns Team
+    email: validatedpatterns@redhat.com
+home: https://validatedpatterns.io
+sources:
+  - https://github.com/validatedpatterns/validated-patterns-ansible-toolkit
+annotations:
+  # Validated Patterns specific annotations
+  validatedpatterns.io/pattern-type: reference-application
+  validatedpatterns.io/deployment-method: gitops
+  # OpenShift specific annotations
+  openshift.io/display-name: Quarkus Reference Application
+  openshift.io/provider-display-name: Red Hat Validated Patterns

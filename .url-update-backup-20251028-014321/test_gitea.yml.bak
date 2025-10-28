@@ -1,0 +1,399 @@
+---
+# Test playbook for validated_patterns_gitea role
+# Purpose: Setup Gitea repository with Quarkus reference application
+
+- name: Test validated_patterns_gitea Role
+  hosts: localhost
+  gather_facts: yes
+  vars:
+    test_timestamp: "{{ ansible_date_time.iso8601 }}"
+
+    # Gitea configuration
+    gitea_namespace: "gitea"
+    gitea_instance_name: "gitea-with-admin"
+    gitea_hostname: "gitea-with-admin-gitea.apps.cluster-4l957.4l957.sandbox1206.opentlc.com"
+    gitea_url: "https://{{ gitea_hostname }}"
+    gitea_api_url: "{{ gitea_url }}/api/v1"
+
+    # Repository configuration
+    repo_name: "ansible-execution-environment"
+    repo_description: "Ansible Execution Environment with Quarkus Reference Application"
+    repo_owner: "opentlc-mgr"
+
+    # Author information
+    git_author_name: "Tosin Akinosho"
+    git_author_email: "takinosh@redhat.com"
+
+    # Local repository path
+    local_repo_path: "/home/lab-user/ansible-execution-environment"
+
+  tasks:
+    - name: Display test information
+      debug:
+        msg: |
+          ========================================
+          Testing: validated_patterns_gitea Role
+          Timestamp: {{ test_timestamp }}
+          ========================================
+          Gitea URL: {{ gitea_url }}
+          Repository: {{ repo_owner }}/{{ repo_name }}
+          Author: {{ git_author_name }} <{{ git_author_email }}>
+          ========================================
+
+    # ==========================================
+    # Verify Gitea Infrastructure
+    # ==========================================
+
+    - name: Check if Gitea instance exists
+      kubernetes.core.k8s_info:
+        api_version: pfe.rhpds.com/v1
+        kind: Gitea
+        name: "{{ gitea_instance_name }}"
+        namespace: "{{ gitea_namespace }}"
+      register: gitea_instance
+      failed_when: gitea_instance.resources | length == 0
+
+    - name: Display Gitea instance status
+      debug:
+        msg: |
+          {{ '✅' if gitea_instance.resources | length > 0 else '❌' }} Gitea instance found
+          Status: {{ gitea_instance.resources[0].status.phase | default('Unknown') if gitea_instance.resources | length > 0 else 'Not found' }}
+
+    - name: Get Gitea admin password from instance status
+      set_fact:
+        gitea_admin_password: "{{ gitea_instance.resources[0].status.adminPassword }}"
+      when: gitea_instance.resources | length > 0
+
+    - name: Display admin credentials
+      debug:
+        msg: |
+          Admin User: {{ repo_owner }}
+          Admin Password: {{ gitea_admin_password }}
+
+    - name: Check Gitea pods are running
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Pod
+        namespace: "{{ gitea_namespace }}"
+        label_selectors:
+          - "app=gitea-with-admin"
+      register: gitea_pods
+      failed_when: gitea_pods.resources | length == 0
+
+    - name: Display Gitea pod status
+      debug:
+        msg: |
+          {{ '✅' if gitea_pods.resources | selectattr('status.phase', 'equalto', 'Running') | list | length > 0 else '❌' }} Gitea pods running: {{ gitea_pods.resources | selectattr('status.phase', 'equalto', 'Running') | list | length }}/{{ gitea_pods.resources | length }}
+
+    # ==========================================
+    # Check if Repository Already Exists
+    # ==========================================
+
+    - name: Check if repository already exists in Gitea
+      uri:
+        url: "{{ gitea_api_url }}/repos/{{ repo_owner }}/{{ repo_name }}"
+        method: GET
+        validate_certs: no
+        status_code: [200, 404]
+      register: repo_check
+      failed_when: false
+
+    - name: Display repository check result
+      debug:
+        msg: |
+          Repository status: {{ 'Exists' if repo_check.status == 200 else 'Does not exist' }}
+          {% if repo_check.status == 200 %}
+          Repository URL: {{ gitea_url }}/{{ repo_owner }}/{{ repo_name }}
+          {% endif %}
+
+    # ==========================================
+    # Create Repository in Gitea
+    # ==========================================
+
+    - name: Create repository in Gitea (if it doesn't exist)
+      uri:
+        url: "{{ gitea_api_url }}/user/repos"
+        method: POST
+        user: "{{ repo_owner }}"
+        password: "{{ gitea_admin_password }}"
+        force_basic_auth: yes
+        validate_certs: no
+        body_format: json
+        body:
+          name: "{{ repo_name }}"
+          description: "{{ repo_description }}"
+          private: false
+          auto_init: false
+          default_branch: "main"
+        status_code: [201, 409]
+      register: repo_create
+      when: repo_check.status == 404
+
+    - name: Display repository creation result
+      debug:
+        msg: |
+          {{ '✅' if repo_create.status == 201 else '⚠️' if repo_create.status == 409 else '❌' }} Repository: {{ 'Created' if repo_create.status == 201 else 'Already exists' if repo_create.status == 409 else 'Failed' }}
+          URL: {{ gitea_url }}/{{ repo_owner }}/{{ repo_name }}
+      when: repo_check.status == 404
+
+    # ==========================================
+    # Configure Git and Push Code
+    # ==========================================
+
+    - name: Check if local repository exists
+      stat:
+        path: "{{ local_repo_path }}/.git"
+      register: local_git
+
+    - name: Display local repository status
+      debug:
+        msg: "{{ '✅' if local_git.stat.exists else '❌' }} Local Git repository: {{ 'Found' if local_git.stat.exists else 'Not found' }}"
+
+    - name: Configure Git user name
+      command:
+        cmd: git config user.name "{{ git_author_name }}"
+        chdir: "{{ local_repo_path }}"
+      when: local_git.stat.exists
+
+    - name: Configure Git user email
+      command:
+        cmd: git config user.email "{{ git_author_email }}"
+        chdir: "{{ local_repo_path }}"
+      when: local_git.stat.exists
+
+    - name: Check if Gitea remote already exists
+      command:
+        cmd: git remote get-url gitea
+        chdir: "{{ local_repo_path }}"
+      register: gitea_remote_check
+      failed_when: false
+      changed_when: false
+      when: local_git.stat.exists
+
+    - name: Remove existing Gitea remote if it exists
+      command:
+        cmd: git remote remove gitea
+        chdir: "{{ local_repo_path }}"
+      when:
+        - local_git.stat.exists
+        - gitea_remote_check.rc == 0
+      failed_when: false
+
+    - name: Add Gitea remote
+      command:
+        cmd: "git remote add gitea https://{{ repo_owner }}:{{ gitea_admin_password }}@{{ gitea_hostname }}/{{ repo_owner }}/{{ repo_name }}.git"
+        chdir: "{{ local_repo_path }}"
+      when: local_git.stat.exists
+      register: remote_add
+
+    - name: Display Git remote configuration
+      debug:
+        msg: |
+          {{ '✅' if remote_add is succeeded else '❌' }} Gitea remote configured
+          Remote URL: https://{{ gitea_hostname }}/{{ repo_owner }}/{{ repo_name }}.git
+
+    - name: Get current branch name
+      command:
+        cmd: git branch --show-current
+        chdir: "{{ local_repo_path }}"
+      register: current_branch
+      changed_when: false
+      when: local_git.stat.exists
+
+    - name: Display current branch
+      debug:
+        msg: "Current branch: {{ current_branch.stdout }}"
+      when: local_git.stat.exists
+
+    - name: Push code to Gitea repository
+      command:
+        cmd: "git push -u gitea {{ current_branch.stdout }} --force"
+        chdir: "{{ local_repo_path }}"
+      register: git_push
+      when: local_git.stat.exists
+      failed_when: false
+
+    - name: Display push result
+      debug:
+        msg: |
+          {{ '✅' if git_push.rc == 0 else '⚠️' }} Git push: {{ 'Successful' if git_push.rc == 0 else 'Failed (may need manual intervention)' }}
+          {% if git_push.rc != 0 %}
+          Error: {{ git_push.stderr | default('Unknown error') }}
+          {% endif %}
+      when: local_git.stat.exists
+
+    # ==========================================
+    # Verify Repository Contents
+    # ==========================================
+
+    - name: Verify repository is accessible via API
+      uri:
+        url: "{{ gitea_api_url }}/repos/{{ repo_owner }}/{{ repo_name }}"
+        method: GET
+        validate_certs: no
+        status_code: 200
+      register: repo_verify
+
+    - name: Get repository branches
+      uri:
+        url: "{{ gitea_api_url }}/repos/{{ repo_owner }}/{{ repo_name }}/branches"
+        method: GET
+        validate_certs: no
+        status_code: 200
+      register: repo_branches
+
+    - name: Display repository information
+      debug:
+        msg: |
+          ✅ Repository verified
+          Name: {{ repo_verify.json.name }}
+          Full Name: {{ repo_verify.json.full_name }}
+          Clone URL: {{ repo_verify.json.clone_url }}
+          Branches: {{ repo_branches.json | map(attribute='name') | list | join(', ') }}
+          Default Branch: {{ repo_verify.json.default_branch }}
+
+    - name: Check if Quarkus app directory exists in repository
+      uri:
+        url: "{{ gitea_api_url }}/repos/{{ repo_owner }}/{{ repo_name }}/contents/quarkus-reference-app"
+        method: GET
+        validate_certs: no
+        status_code: [200, 404]
+      register: quarkus_dir_check
+
+    - name: Display Quarkus app verification
+      debug:
+        msg: |
+          {{ '✅' if quarkus_dir_check.status == 200 else '⚠️' }} Quarkus reference app: {{ 'Found in repository' if quarkus_dir_check.status == 200 else 'Not found (may need to push)' }}
+
+    # ==========================================
+    # Generate Test Report
+    # ==========================================
+
+    - name: Set test results
+      set_fact:
+        gitea_available: "{{ gitea_instance.resources | length > 0 }}"
+        gitea_pods_running: "{{ gitea_pods.resources | selectattr('status.phase', 'equalto', 'Running') | list | length > 0 }}"
+        repo_exists: "{{ repo_check.status == 200 or repo_create.status == 201 }}"
+        repo_accessible: "{{ repo_verify.status == 200 }}"
+        code_pushed: "{{ git_push.rc == 0 if git_push is defined else false }}"
+        quarkus_app_present: "{{ quarkus_dir_check.status == 200 }}"
+
+    - name: Generate test report
+      copy:
+        dest: "tests/week8/results/gitea_test_report.md"
+        content: |
+          # Test Report: validated_patterns_gitea Role
+
+          **Test Date:** {{ test_timestamp }}
+          **Test Duration:** N/A
+
+          ## Test Summary
+
+          | Test | Status |
+          |------|--------|
+          | Gitea Instance Available | {{ '✅ PASSED' if gitea_available else '❌ FAILED' }} |
+          | Gitea Pods Running | {{ '✅ PASSED' if gitea_pods_running else '❌ FAILED' }} |
+          | Repository Created | {{ '✅ PASSED' if repo_exists else '❌ FAILED' }} |
+          | Repository Accessible | {{ '✅ PASSED' if repo_accessible else '❌ FAILED' }} |
+          | Code Pushed | {{ '✅ PASSED' if code_pushed else '⚠️ PARTIAL' }} |
+          | Quarkus App Present | {{ '✅ PASSED' if quarkus_app_present else '⚠️ PARTIAL' }} |
+
+          ## Test Details
+
+          ### Gitea Infrastructure
+          - **Instance Name:** {{ gitea_instance_name }}
+          - **Namespace:** {{ gitea_namespace }}
+          - **URL:** {{ gitea_url }}
+          - **Status:** {{ '✅ Running' if gitea_available else '❌ Not Available' }}
+          - **Pods Running:** {{ gitea_pods.resources | selectattr('status.phase', 'equalto', 'Running') | list | length }}/{{ gitea_pods.resources | length }}
+
+          ### Repository Configuration
+          - **Repository Name:** {{ repo_name }}
+          - **Owner:** {{ repo_owner }}
+          - **Description:** {{ repo_description }}
+          - **Clone URL:** {{ repo_verify.json.clone_url if repo_accessible else 'N/A' }}
+          - **Default Branch:** {{ repo_verify.json.default_branch if repo_accessible else 'N/A' }}
+          - **Branches:** {{ repo_branches.json | map(attribute='name') | list | join(', ') if repo_accessible else 'N/A' }}
+
+          ### Git Author Configuration
+          - **Author Name:** {{ git_author_name }}
+          - **Author Email:** {{ git_author_email }}
+
+          ### Repository Contents
+          - **Quarkus Reference App:** {{ '✅ Present' if quarkus_app_present else '⚠️ Not found' }}
+          - **Local Repository:** {{ local_repo_path }}
+
+          ## Validation Checks
+
+          1. {{ '✅' if gitea_available else '❌' }} Gitea instance deployed and available
+          2. {{ '✅' if gitea_pods_running else '❌' }} Gitea pods running
+          3. {{ '✅' if repo_exists else '❌' }} Repository created in Gitea
+          4. {{ '✅' if repo_accessible else '❌' }} Repository accessible via API
+          5. {{ '✅' if code_pushed else '⚠️' }} Code pushed to repository
+          6. {{ '✅' if quarkus_app_present else '⚠️' }} Quarkus app present in repository
+
+          ## Repository Access
+
+          **Web UI:** {{ gitea_url }}/{{ repo_owner }}/{{ repo_name }}
+
+          **Clone Commands:**
+          ```bash
+          # HTTPS
+          git clone {{ repo_verify.json.clone_url if repo_accessible else gitea_url + '/' + repo_owner + '/' + repo_name + '.git' }}
+
+          # SSH (if configured)
+          git clone git@{{ gitea_hostname }}:{{ repo_owner }}/{{ repo_name }}.git
+          ```
+
+          ## Conclusion
+
+          {% if gitea_available and repo_exists and repo_accessible %}
+          ✅ **Tests passed successfully!**
+
+          The validated_patterns_gitea role:
+          - Gitea instance is running and accessible
+          - Repository created and configured
+          - Code repository ready for ArgoCD integration
+          {% if code_pushed and quarkus_app_present %}
+          - Quarkus reference application code is present
+          {% endif %}
+          {% else %}
+          ⚠️ **Some tests did not complete successfully.**
+
+          Please review the test details above for more information.
+          {% endif %}
+
+          ## Next Steps
+
+          - Proceed to Task 3: Test validated_patterns_deploy role
+          - Use Gitea repository for ArgoCD deployment
+          - Deploy Quarkus application via GitOps
+
+          ## ArgoCD Integration
+
+          Use this repository URL in ArgoCD Application:
+          ```yaml
+          source:
+            repoURL: {{ repo_verify.json.clone_url if repo_accessible else gitea_url + '/' + repo_owner + '/' + repo_name + '.git' }}
+            targetRevision: main
+            path: quarkus-reference-app/k8s/overlays/dev
+          ```
+
+    - name: Display test summary
+      debug:
+        msg: |
+          ========================================
+          TEST SUMMARY
+          ========================================
+          Gitea Available: {{ '✅ PASSED' if gitea_available else '❌ FAILED' }}
+          Gitea Pods Running: {{ '✅ PASSED' if gitea_pods_running else '❌ FAILED' }}
+          Repository Created: {{ '✅ PASSED' if repo_exists else '❌ FAILED' }}
+          Repository Accessible: {{ '✅ PASSED' if repo_accessible else '❌ FAILED' }}
+          Code Pushed: {{ '✅ PASSED' if code_pushed else '⚠️ PARTIAL' }}
+          Quarkus App Present: {{ '✅ PASSED' if quarkus_app_present else '⚠️ PARTIAL' }}
+
+          Repository URL: {{ gitea_url }}/{{ repo_owner }}/{{ repo_name }}
+          Clone URL: {{ repo_verify.json.clone_url if repo_accessible else 'N/A' }}
+
+          Report saved to: tests/week8/results/gitea_test_report.md
+          ========================================

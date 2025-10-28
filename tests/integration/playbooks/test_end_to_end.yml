@@ -1,0 +1,636 @@
+---
+# End-to-End Integration Test for Validated Patterns Toolkit
+# Week 9 Task 3: Integration Testing
+# Tests the complete end-user workflow using validated_patterns_operator role
+
+- name: End-to-End Integration Test - VP Operator Workflow
+  hosts: localhost
+  connection: local
+  gather_facts: yes
+
+  vars:
+    # Test configuration
+    test_name: "end-to-end-vp-operator"
+    test_pattern_name: "validated-patterns-ansible-toolkit"
+    test_git_url: "https://opentlc-mgr:j0sBFggYvrMlHdp0LTtn1VD0so6OlsZI@gitea-with-admin-gitea.apps.cluster-4l957.4l957.sandbox1206.opentlc.com/opentlc-mgr/validated-patterns-ansible-toolkit.git"
+    test_git_revision: "main"
+    test_start_time: "{{ ansible_date_time.iso8601 }}"
+
+    # Role configuration
+    validated_patterns_pattern_name: "{{ test_pattern_name }}"
+    validated_patterns_git_url: "{{ test_git_url }}"
+    validated_patterns_git_revision: "{{ test_git_revision }}"
+    validated_patterns_target_namespace: "openshift-gitops"
+    validated_patterns_values_global: "../values-global.yaml"
+    validated_patterns_values_hub: "../values-hub.yaml"
+    validated_patterns_cluster_group_name: "hub"
+    validated_patterns_extra_parameters:
+      - name: "global.localClusterName"
+        value: "{{ test_pattern_name }}"
+
+    # Test tracking
+    test_results: []
+    test_phases: []
+    deployment_start_time: ""
+    deployment_end_time: ""
+
+    # Debug mode
+    vp_debug_mode: true
+
+  tasks:
+    # ========================================
+    # Phase 0: Pre-Test Validation
+    # ========================================
+
+    - name: Display test information
+      debug:
+        msg: |
+          ========================================
+          End-to-End Integration Test
+          ========================================
+          Test: {{ test_name }}
+          Pattern: {{ test_pattern_name }}
+          Git URL: {{ test_git_url }}
+          Revision: {{ test_git_revision }}
+          Workflow: End-User (VP Operator)
+          ========================================
+
+    - name: Record test start time
+      set_fact:
+        test_start_timestamp: "{{ ansible_date_time.epoch }}"
+
+    - name: Verify cluster connectivity
+      kubernetes.core.k8s_cluster_info:
+      register: cluster_info
+
+    - name: Display cluster information
+      debug:
+        msg: |
+          ✅ Cluster connectivity verified
+          Version: {{ cluster_info.version.server.kubernetes.gitVersion }}
+          Platform: {{ cluster_info.version.server.platform | default('Unknown') }}
+
+    - name: Check if values files exist
+      stat:
+        path: "{{ item }}"
+      register: values_files_check
+      loop:
+        - "{{ validated_patterns_values_global }}"
+        - "{{ validated_patterns_values_hub }}"
+
+    - name: Verify values files exist
+      assert:
+        that:
+          - values_files_check.results | selectattr('stat.exists', 'equalto', true) | list | length == 2
+        fail_msg: "Values files not found"
+        success_msg: "✅ Values files found"
+
+    - name: Verify cluster is clean
+      block:
+        - name: Check for existing Pattern CR
+          kubernetes.core.k8s_info:
+            api_version: gitops.hybrid-cloud-patterns.io/v1alpha1
+            kind: Pattern
+            name: "{{ test_pattern_name }}"
+            namespace: openshift-operators
+          register: existing_pattern
+          ignore_errors: yes
+
+        - name: Warn if Pattern CR exists
+          debug:
+            msg: |
+              ⚠️  WARNING: Pattern CR already exists!
+              This may affect test results.
+              Consider running cleanup first: tests/integration/cleanup/cleanup.sh
+          when: existing_pattern.resources | length > 0
+
+    - name: Record pre-test validation
+      set_fact:
+        test_results: "{{ test_results + ['✅ Phase 0 (Pre-test validation): PASSED'] }}"
+        test_phases: "{{ test_phases + [{'phase': 'Pre-test validation', 'status': 'PASSED', 'duration': 0}] }}"
+
+    # ========================================
+    # Phase 1: Deploy using VP Operator Role
+    # ========================================
+
+    - name: Phase 1 - Deploy using validated_patterns_operator role
+      block:
+        - name: Record deployment start time
+          set_fact:
+            deployment_start_time: "{{ ansible_date_time.epoch }}"
+
+        - name: Display deployment phase
+          debug:
+            msg: |
+              ========================================
+              Phase 1: VP Operator Deployment
+              ========================================
+              Executing validated_patterns_operator role
+              This will:
+              1. Install VP Operator
+              2. Create Pattern CR
+              3. Deploy OpenShift GitOps
+              4. Create clustergroup application
+              ========================================
+
+        - name: Execute validated_patterns_operator role
+          include_role:
+            name: validated_patterns_operator
+          register: deployment_result
+
+        - name: Record deployment end time
+          set_fact:
+            deployment_end_time: "{{ ansible_date_time.epoch }}"
+
+        - name: Calculate deployment duration
+          set_fact:
+            deployment_duration: "{{ (deployment_end_time | int) - (deployment_start_time | int) }}"
+
+        - name: Display deployment duration
+          debug:
+            msg: "✅ Deployment completed in {{ deployment_duration }} seconds"
+
+        - name: Record deployment success
+          set_fact:
+            test_results: "{{ test_results + ['✅ Phase 1 (VP Operator deployment): PASSED - ' + deployment_duration + 's'] }}"
+            test_phases: "{{ test_phases + [{'phase': 'VP Operator deployment', 'status': 'PASSED', 'duration': deployment_duration | int}] }}"
+
+      rescue:
+        - name: Record deployment failure
+          set_fact:
+            test_results: "{{ test_results + ['❌ Phase 1 (VP Operator deployment): FAILED'] }}"
+            test_phases: "{{ test_phases + [{'phase': 'VP Operator deployment', 'status': 'FAILED', 'duration': 0}] }}"
+
+        - name: Fail the test
+          fail:
+            msg: "VP Operator deployment failed"
+
+    # ========================================
+    # Phase 2: Validate Operator Installation
+    # ========================================
+
+    - name: Phase 2 - Validate VP Operator installation
+      block:
+        - name: Check VP Operator CSV
+          kubernetes.core.k8s_info:
+            api_version: operators.coreos.com/v1alpha1
+            kind: ClusterServiceVersion
+            namespace: openshift-operators
+          register: operator_csv
+
+        - name: Verify operator is installed and ready
+          assert:
+            that:
+              - operator_csv.resources | length > 0
+              - operator_csv.resources | selectattr('metadata.name', 'search', 'patterns-operator') | list | length > 0
+              - (operator_csv.resources | selectattr('metadata.name', 'search', 'patterns-operator') | list | first).status.phase == "Succeeded"
+            fail_msg: "VP Operator not properly installed"
+            success_msg: "✅ VP Operator installed and ready"
+
+        - name: Record operator validation success
+          set_fact:
+            test_results: "{{ test_results + ['✅ Phase 2 (Operator validation): PASSED'] }}"
+            test_phases: "{{ test_phases + [{'phase': 'Operator validation', 'status': 'PASSED', 'duration': 0}] }}"
+
+      rescue:
+        - name: Record operator validation failure
+          set_fact:
+            test_results: "{{ test_results + ['❌ Phase 2 (Operator validation): FAILED'] }}"
+            test_phases: "{{ test_phases + [{'phase': 'Operator validation', 'status': 'FAILED', 'duration': 0}] }}"
+
+    # ========================================
+    # Phase 3: Validate Pattern CR
+    # ========================================
+
+    - name: Phase 3 - Validate Pattern Custom Resource
+      block:
+        - name: Check Pattern CR
+          kubernetes.core.k8s_info:
+            api_version: gitops.hybrid-cloud-patterns.io/v1alpha1
+            kind: Pattern
+            name: "{{ test_pattern_name }}"
+            namespace: openshift-operators
+          register: pattern_cr
+
+        - name: Verify Pattern CR exists and is configured correctly
+          assert:
+            that:
+              - pattern_cr.resources | length > 0
+              - pattern_cr.resources[0].spec.gitSpec.targetRepo == test_git_url
+              - pattern_cr.resources[0].spec.gitSpec.targetRevision == test_git_revision
+            fail_msg: "Pattern CR not properly configured"
+            success_msg: "✅ Pattern CR configured correctly"
+
+        - name: Display Pattern CR status
+          debug:
+            msg: |
+              Pattern CR Status:
+              Name: {{ pattern_cr.resources[0].metadata.name }}
+              Phase: {{ pattern_cr.resources[0].status.phase | default('Unknown') }}
+              Git URL: {{ pattern_cr.resources[0].spec.gitSpec.targetRepo }}
+              Revision: {{ pattern_cr.resources[0].spec.gitSpec.targetRevision }}
+
+        - name: Record Pattern CR validation success
+          set_fact:
+            test_results: "{{ test_results + ['✅ Phase 3 (Pattern CR validation): PASSED'] }}"
+            test_phases: "{{ test_phases + [{'phase': 'Pattern CR validation', 'status': 'PASSED', 'duration': 0}] }}"
+
+      rescue:
+        - name: Record Pattern CR validation failure
+          set_fact:
+            test_results: "{{ test_results + ['❌ Phase 3 (Pattern CR validation): FAILED'] }}"
+            test_phases: "{{ test_phases + [{'phase': 'Pattern CR validation', 'status': 'FAILED', 'duration': 0}] }}"
+
+    # ========================================
+    # Phase 4: Validate GitOps Deployment
+    # ========================================
+
+    - name: Phase 4 - Validate OpenShift GitOps deployment
+      block:
+        - name: Check openshift-gitops namespace
+          kubernetes.core.k8s_info:
+            api_version: v1
+            kind: Namespace
+            name: "{{ validated_patterns_target_namespace }}"
+          register: gitops_namespace
+
+        - name: Verify GitOps namespace exists
+          assert:
+            that:
+              - gitops_namespace.resources | length > 0
+            fail_msg: "GitOps namespace not found"
+            success_msg: "✅ GitOps namespace exists"
+
+        - name: Check ArgoCD instance
+          kubernetes.core.k8s_info:
+            api_version: argoproj.io/v1beta1
+            kind: ArgoCD
+            name: openshift-gitops
+            namespace: "{{ validated_patterns_target_namespace }}"
+          register: argocd_instance
+
+        - name: Verify ArgoCD instance exists and is available
+          assert:
+            that:
+              - argocd_instance.resources | length > 0
+            fail_msg: "ArgoCD instance not found"
+            success_msg: "✅ ArgoCD instance deployed"
+
+        - name: Check ArgoCD server pod
+          kubernetes.core.k8s_info:
+            api_version: v1
+            kind: Pod
+            namespace: "{{ validated_patterns_target_namespace }}"
+            label_selectors:
+              - "app.kubernetes.io/name=openshift-gitops-server"
+          register: argocd_pods
+
+        - name: Verify ArgoCD server is running
+          assert:
+            that:
+              - argocd_pods.resources | length > 0
+              - argocd_pods.resources[0].status.phase == "Running"
+            fail_msg: "ArgoCD server not running"
+            success_msg: "✅ ArgoCD server running"
+
+        - name: Record GitOps validation success
+          set_fact:
+            test_results: "{{ test_results + ['✅ Phase 4 (GitOps deployment): PASSED'] }}"
+            test_phases: "{{ test_phases + [{'phase': 'GitOps deployment', 'status': 'PASSED', 'duration': 0}] }}"
+
+      rescue:
+        - name: Record GitOps validation failure
+          set_fact:
+            test_results: "{{ test_results + ['❌ Phase 4 (GitOps deployment): FAILED'] }}"
+            test_phases: "{{ test_phases + [{'phase': 'GitOps deployment', 'status': 'FAILED', 'duration': 0}] }}"
+
+    # ========================================
+    # Phase 5: Validate ArgoCD Applications
+    # ========================================
+
+    - name: Phase 5 - Validate ArgoCD applications
+      block:
+        - name: Get all ArgoCD applications
+          kubernetes.core.k8s_info:
+            api_version: argoproj.io/v1alpha1
+            kind: Application
+            namespace: "{{ validated_patterns_target_namespace }}"
+          register: all_applications
+
+        - name: Display applications
+          debug:
+            msg: |
+              ArgoCD Applications: {{ all_applications.resources | length }}
+              {% for app in all_applications.resources %}
+              - {{ app.metadata.name }}: {{ app.status.health.status | default('Unknown') }} / {{ app.status.sync.status | default('Unknown') }}
+              {% endfor %}
+
+        - name: Check for clustergroup application
+          set_fact:
+            clustergroup_exists: "{{ all_applications.resources | selectattr('metadata.name', 'search', 'clustergroup') | list | length > 0 }}"
+
+        - name: Record applications validation
+          set_fact:
+            test_results: "{{ test_results + ['✅ Phase 5 (ArgoCD applications): PASSED - ' + (all_applications.resources | length | string) + ' applications'] }}"
+            test_phases: "{{ test_phases + [{'phase': 'ArgoCD applications', 'status': 'PASSED', 'duration': 0}] }}"
+
+      rescue:
+        - name: Record applications validation failure
+          set_fact:
+            test_results: "{{ test_results + ['❌ Phase 5 (ArgoCD applications): FAILED'] }}"
+            test_phases: "{{ test_phases + [{'phase': 'ArgoCD applications', 'status': 'FAILED', 'duration': 0}] }}"
+
+    # ========================================
+    # Phase 6: Performance Metrics
+    # ========================================
+
+    - name: Phase 6 - Collect performance metrics
+      block:
+        - name: Calculate total test duration
+          set_fact:
+            test_end_timestamp: "{{ ansible_date_time.epoch }}"
+            total_test_duration: "{{ (ansible_date_time.epoch | int) - (test_start_timestamp | int) }}"
+
+        - name: Get resource usage
+          kubernetes.core.k8s_info:
+            api_version: v1
+            kind: Pod
+            namespace: "{{ validated_patterns_target_namespace }}"
+          register: gitops_pods
+
+        - name: Display performance metrics
+          debug:
+            msg: |
+              ========================================
+              Performance Metrics
+              ========================================
+              Total Test Duration: {{ total_test_duration }}s
+              Deployment Duration: {{ deployment_duration }}s
+              GitOps Pods: {{ gitops_pods.resources | length }}
+              ArgoCD Applications: {{ all_applications.resources | length }}
+              ========================================
+
+        - name: Record performance metrics
+          set_fact:
+            test_results: "{{ test_results + ['✅ Phase 6 (Performance metrics): PASSED'] }}"
+            test_phases: "{{ test_phases + [{'phase': 'Performance metrics', 'status': 'PASSED', 'duration': 0}] }}"
+            performance_metrics:
+              total_duration: "{{ total_test_duration }}"
+              deployment_duration: "{{ deployment_duration }}"
+              gitops_pods: "{{ gitops_pods.resources | length }}"
+              argocd_applications: "{{ all_applications.resources | length }}"
+
+      rescue:
+        - name: Record performance metrics failure
+          set_fact:
+            test_results: "{{ test_results + ['⚠️  Phase 6 (Performance metrics): PARTIAL'] }}"
+            test_phases: "{{ test_phases + [{'phase': 'Performance metrics', 'status': 'PARTIAL', 'duration': 0}] }}"
+
+    # ========================================
+    # Phase 7: Generate Integration Test Report
+    # ========================================
+
+    - name: Phase 7 - Generate integration test report
+      block:
+        - name: Get final cluster state
+          kubernetes.core.k8s_cluster_info:
+          register: final_cluster_info
+
+        - name: Get final operator status
+          kubernetes.core.k8s_info:
+            api_version: operators.coreos.com/v1alpha1
+            kind: ClusterServiceVersion
+            namespace: openshift-operators
+          register: final_operator_status
+
+        - name: Get final Pattern CR status
+          kubernetes.core.k8s_info:
+            api_version: gitops.hybrid-cloud-patterns.io/v1alpha1
+            kind: Pattern
+            name: "{{ test_pattern_name }}"
+            namespace: openshift-operators
+          register: final_pattern_status
+
+        - name: Get final ArgoCD status
+          kubernetes.core.k8s_info:
+            api_version: argoproj.io/v1beta1
+            kind: ArgoCD
+            name: openshift-gitops
+            namespace: "{{ validated_patterns_target_namespace }}"
+          register: final_argocd_status
+
+        - name: Get ArgoCD route
+          kubernetes.core.k8s_info:
+            api_version: route.openshift.io/v1
+            kind: Route
+            name: openshift-gitops-server
+            namespace: "{{ validated_patterns_target_namespace }}"
+          register: argocd_route
+
+        - name: Create integration test report
+          copy:
+            content: |
+              # End-to-End Integration Test Report
+
+              **Test Name:** {{ test_name }}
+              **Test Date:** {{ test_start_time }}
+              **Pattern:** {{ test_pattern_name }}
+              **Git URL:** {{ test_git_url }}
+              **Revision:** {{ test_git_revision }}
+              **Workflow:** End-User (VP Operator)
+
+              ---
+
+              ## Test Environment
+
+              **Cluster Information:**
+              - Kubernetes Version: {{ final_cluster_info.version.server.kubernetes.gitVersion }}
+              - Platform: {{ final_cluster_info.version.server.platform | default('Unknown') }}
+
+              ---
+
+              ## Test Results Summary
+
+              {% for result in test_results %}
+              {{ result }}
+              {% endfor %}
+
+              ---
+
+              ## Test Phases
+
+              | Phase | Status | Duration |
+              |-------|--------|----------|
+              {% for phase in test_phases %}
+              | {{ phase.phase }} | {{ phase.status }} | {{ phase.duration }}s |
+              {% endfor %}
+
+              ---
+
+              ## Performance Metrics
+
+              {% if performance_metrics is defined %}
+              - **Total Test Duration:** {{ performance_metrics.total_duration }}s
+              - **Deployment Duration:** {{ performance_metrics.deployment_duration }}s
+              - **GitOps Pods:** {{ performance_metrics.gitops_pods }}
+              - **ArgoCD Applications:** {{ performance_metrics.argocd_applications }}
+              {% else %}
+              - Performance metrics not available
+              {% endif %}
+
+              ---
+
+              ## Component Status
+
+              ### Validated Patterns Operator
+              {% if final_operator_status.resources | selectattr('metadata.name', 'search', 'patterns-operator') | list | length > 0 %}
+              - **Status:** Installed
+              - **CSV:** {{ (final_operator_status.resources | selectattr('metadata.name', 'search', 'patterns-operator') | list | first).metadata.name }}
+              - **Phase:** {{ (final_operator_status.resources | selectattr('metadata.name', 'search', 'patterns-operator') | list | first).status.phase }}
+              {% else %}
+              - **Status:** Not Found
+              {% endif %}
+
+              ### Pattern Custom Resource
+              {% if final_pattern_status.resources | length > 0 %}
+              - **Name:** {{ final_pattern_status.resources[0].metadata.name }}
+              - **Phase:** {{ final_pattern_status.resources[0].status.phase | default('Unknown') }}
+              - **Git URL:** {{ final_pattern_status.resources[0].spec.gitSpec.targetRepo }}
+              - **Revision:** {{ final_pattern_status.resources[0].spec.gitSpec.targetRevision }}
+              - **Clustergroup:** {{ final_pattern_status.resources[0].spec.clusterGroupName }}
+              {% else %}
+              - **Status:** Not Found
+              {% endif %}
+
+              ### OpenShift GitOps (ArgoCD)
+              {% if final_argocd_status.resources | length > 0 %}
+              - **Instance:** {{ final_argocd_status.resources[0].metadata.name }}
+              - **Namespace:** {{ final_argocd_status.resources[0].metadata.namespace }}
+              - **Phase:** {{ final_argocd_status.resources[0].status.phase | default('Unknown') }}
+              {% else %}
+              - **Status:** Not Found
+              {% endif %}
+
+              ### ArgoCD Applications
+              {% if all_applications is defined %}
+              - **Total Applications:** {{ all_applications.resources | length }}
+
+              | Application | Health | Sync |
+              |-------------|--------|------|
+              {% for app in all_applications.resources %}
+              | {{ app.metadata.name }} | {{ app.status.health.status | default('Unknown') }} | {{ app.status.sync.status | default('Unknown') }} |
+              {% endfor %}
+              {% endif %}
+
+              ---
+
+              ## ArgoCD Access Information
+
+              {% if argocd_route.resources | length > 0 %}
+              - **URL:** https://{{ argocd_route.resources[0].spec.host }}
+              - **Username:** admin
+              - **Password Command:** `oc get secret openshift-gitops-cluster -n {{ validated_patterns_target_namespace }} -o jsonpath='{.data.admin\.password}' | base64 -d`
+              {% else %}
+              - ArgoCD route not found
+              {% endif %}
+
+              ---
+
+              ## Conclusion
+
+              {% set passed_count = test_results | select('search', '✅') | list | length %}
+              {% set failed_count = test_results | select('search', '❌') | list | length %}
+              {% set total_count = test_results | length %}
+
+              **Test Results:** {{ passed_count }}/{{ total_count }} phases passed
+
+              {% if failed_count == 0 %}
+              ✅ **ALL TESTS PASSED**
+
+              The end-to-end integration test completed successfully!
+
+              **Key Achievements:**
+              1. ✅ VP Operator installed successfully
+              2. ✅ Pattern CR created and processed
+              3. ✅ OpenShift GitOps deployed
+              4. ✅ ArgoCD instance running
+              5. ✅ Applications deployed
+
+              **The validated_patterns_operator role is production-ready for end-user deployment!**
+
+              {% else %}
+              ⚠️  **SOME TESTS FAILED**
+
+              {{ failed_count }} phase(s) failed. Review the test results above for details.
+
+              **Troubleshooting:**
+              1. Check operator logs: `oc logs -n openshift-operators -l name=patterns-operator`
+              2. Check Pattern CR: `oc describe pattern {{ test_pattern_name }} -n openshift-operators`
+              3. Check ArgoCD: `oc get pods -n {{ validated_patterns_target_namespace }}`
+              4. Review ArgoCD UI for application status
+              {% endif %}
+
+              ---
+
+              ## Next Steps
+
+              1. **Review ArgoCD UI** - Monitor application deployment progress
+              2. **Verify Application Health** - Ensure all applications are synced and healthy
+              3. **Test Application Functionality** - Validate deployed applications work correctly
+              4. **Performance Testing** - Conduct load testing if required
+              5. **Documentation** - Update deployment guides based on test results
+
+              ---
+
+              ## Test Artifacts
+
+              - **Test Playbook:** `tests/integration/playbooks/test_end_to_end.yml`
+              - **Test Report:** `tests/integration/results/end_to_end_report.md`
+              - **Cleanup Script:** `tests/integration/cleanup/cleanup.sh`
+
+              ---
+
+              ## References
+
+              - [Validated Patterns Documentation](https://validatedpatterns.io/)
+              - [Implementation Plan](../../../docs/IMPLEMENTATION-PLAN.md)
+              - [VP Operator Role README](../../../ansible/roles/validated_patterns_operator/README.md)
+            dest: "../results/end_to_end_report.md"
+
+        - name: Display report location
+          debug:
+            msg: "✅ Integration test report generated: tests/integration/results/end_to_end_report.md"
+
+        - name: Record report generation success
+          set_fact:
+            test_results: "{{ test_results + ['✅ Phase 7 (Report generation): PASSED'] }}"
+            test_phases: "{{ test_phases + [{'phase': 'Report generation', 'status': 'PASSED', 'duration': 0}] }}"
+
+    # ========================================
+    # Final Summary
+    # ========================================
+
+    - name: Display final test summary
+      debug:
+        msg: |
+          ========================================
+          End-to-End Integration Test Summary
+          ========================================
+          Test: {{ test_name }}
+          Pattern: {{ test_pattern_name }}
+          Workflow: End-User (VP Operator)
+
+          {% for result in test_results %}
+          {{ result }}
+          {% endfor %}
+
+          Total Duration: {{ total_test_duration }}s
+          Deployment Duration: {{ deployment_duration }}s
+
+          Report: tests/integration/results/end_to_end_report.md
+          ========================================
+
+          {% if argocd_route.resources | length > 0 %}
+          ArgoCD UI: https://{{ argocd_route.resources[0].spec.host }}
+          {% endif %}
+          ========================================

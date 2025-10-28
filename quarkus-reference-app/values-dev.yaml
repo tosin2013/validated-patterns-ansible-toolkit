@@ -1,0 +1,240 @@
+# Development environment values for Quarkus Reference Application
+# This file overrides values-global.yaml for development environments
+# Use this for development clusters or development namespaces
+
+# Development cluster group configuration
+clusterGroup:
+  name: development
+  isHubCluster: false
+  targetRevision: main
+
+  # Development namespace
+  namespaces:
+    - quarkus-dev
+
+  # Development applications
+  applications:
+    quarkus-reference-app:
+      name: quarkus-reference-app
+      namespace: quarkus-dev
+      project: quarkus-reference
+      path: quarkus-reference-app/charts/all/quarkus-reference-app
+      repoURL: https://github.com/validatedpatterns/validated-patterns-ansible-toolkit.git
+      targetRevision: main
+
+      # Development sync policy - more lenient
+      syncPolicy:
+        automated:
+          prune: true
+          selfHeal: true
+        syncOptions:
+          - CreateNamespace=false
+
+      # Development overrides
+      overrides:
+        - name: namespace.create
+          value: "false"
+        - name: namespace.name
+          value: quarkus-dev
+        - name: replicaCount
+          value: "1"  # Single replica for dev
+        - name: image.tag
+          value: latest  # Always use latest in dev
+
+# Development-specific Quarkus application configuration
+# These values override the chart's default values.yaml
+
+# Namespace configuration for development
+namespace:
+  name: quarkus-dev
+  create: true
+
+# Application name
+name: reference-app
+
+# Single replica for development
+replicaCount: 1
+
+# Reduced resources for development
+resources:
+  requests:
+    memory: "64Mi"
+    cpu: "50m"
+  limits:
+    memory: "128Mi"
+    cpu: "250m"
+
+# Development configuration
+config:
+  profile: dev
+  appConfig: |
+    # Application configuration
+    app.name=reference-app-dev
+    app.version=1.0.0-dev
+    app.environment=development
+
+# Development image configuration
+# Using internal registry with image built by BuildConfig
+image:
+  repository: image-registry.openshift-image-registry.svc:5000/quarkus-dev/reference-app
+  tag: latest
+  pullPolicy: Always  # Always pull latest build in dev
+
+# Service configuration (same as global)
+service:
+  type: ClusterIP
+  port: 8080
+  targetPort: 8080
+
+# Route configuration
+route:
+  enabled: true
+  host: ""  # Auto-generated
+  tls:
+    enabled: true
+    termination: edge
+
+# RBAC (same as global)
+rbac:
+  create: true
+
+# ServiceAccount (same as global)
+serviceAccount:
+  create: true
+  name: reference-app
+
+# Relaxed health checks for development
+healthChecks:
+  liveness:
+    enabled: true
+    path: /health/live
+    port: 8080
+    initialDelaySeconds: 3  # Faster startup
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 5  # More tolerant
+  readiness:
+    enabled: true
+    path: /health/ready
+    port: 8080
+    initialDelaySeconds: 3  # Faster startup
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 5  # More tolerant
+
+# Security context (same as global)
+# Note: runAsUser is intentionally omitted to allow OpenShift to assign a UID
+# from the namespace's allowed range (e.g., 1000800000-1000819999)
+securityContext:
+  allowPrivilegeEscalation: false
+  runAsNonRoot: true
+  capabilities:
+    drop:
+      - ALL
+
+# ArgoCD configuration for development
+argocd:
+  # Sync waves (same as global)
+  syncWaves:
+    namespace: "-1"
+    configmap: "0"
+    serviceaccount: "0"
+    role: "1"
+    rolebinding: "1"
+    deployment: "2"
+    service: "3"
+    route: "3"
+
+  # More aggressive sync policy for development
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - RespectIgnoreDifferences=true
+    retry:
+      limit: 3  # Fewer retries in dev
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 1m  # Shorter max duration
+
+# Development-specific labels
+labels:
+  app: reference-app
+  app.kubernetes.io/name: reference-app
+  app.kubernetes.io/part-of: validated-patterns
+  app.kubernetes.io/component: application
+  app.kubernetes.io/managed-by: argocd
+  environment: development
+  tier: dev
+
+# Development-specific annotations
+annotations:
+  validatedpatterns.io/pattern: quarkus-reference-app
+  validatedpatterns.io/deployment-method: gitops
+  validatedpatterns.io/environment: development
+
+# Monitoring configuration (optional, disabled in dev)
+monitoring:
+  enabled: false
+
+# Backup configuration (disabled in dev)
+backup:
+  enabled: false
+
+# Network policies (disabled in dev for easier debugging)
+networkPolicies:
+  enabled: false
+
+# Development environment metadata
+dev:
+  # Development cluster metadata
+  clusterName: dev-cluster
+  clusterDomain: apps.dev.example.com
+
+  # Development features
+  features:
+    debugMode: true
+    verboseLogging: true
+    hotReload: true
+
+  # Development tools
+  tools:
+    - kubectl
+    - oc
+    - helm
+
+  # Development labels
+  labels:
+    cluster-type: development
+    environment: dev
+    managed-by: validated-patterns
+    auto-cleanup: "true"  # Can be cleaned up automatically
+
+# Build configuration for development
+# Enable building from source in dev environment
+build:
+  enabled: true
+
+  # Git source - use Gitea repository
+  git:
+    uri: https://gitea-with-admin-gitea.apps.cluster-4l957.4l957.sandbox1206.opentlc.com/opentlc-mgr/validated-patterns-ansible-toolkit.git
+    ref: main
+    contextDir: quarkus-reference-app
+
+  # Build triggers - auto-build on changes
+  triggers:
+    configChange: true
+    imageChange: true
+    webhook: false
+
+  # Development build resources (smaller for faster iteration)
+  resources:
+    limits:
+      cpu: "2"
+      memory: "4Gi"
+    requests:
+      cpu: "500m"
+      memory: "2Gi"

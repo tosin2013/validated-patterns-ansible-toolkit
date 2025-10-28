@@ -1,0 +1,55 @@
+Thank you for installing {{ .Chart.Name }}!
+
+Your Quarkus Reference Application has been deployed.
+
+Chart Version: {{ .Chart.Version }}
+App Version: {{ .Chart.AppVersion }}
+Release Name: {{ .Release.Name }}
+Namespace: {{ include "quarkus-reference-app.namespace" . }}
+
+Resources deployed:
+- Namespace: {{ include "quarkus-reference-app.namespace" . }}
+- Deployment: {{ .Values.name }} ({{ .Values.replicaCount }} replicas)
+- Service: {{ .Values.name }} ({{ .Values.service.type }})
+{{- if .Values.route.enabled }}
+- Route: {{ .Values.name }}
+{{- end }}
+{{- if .Values.rbac.create }}
+- RBAC: Role and RoleBinding
+{{- end }}
+{{- if .Values.serviceAccount.create }}
+- ServiceAccount: {{ include "quarkus-reference-app.serviceAccountName" . }}
+{{- end }}
+
+To get the application URL:
+{{- if .Values.route.enabled }}
+  export ROUTE_HOST=$(oc get route {{ .Values.name }} -n {{ include "quarkus-reference-app.namespace" . }} -o jsonpath='{.spec.host}')
+  echo "Application URL: https://$ROUTE_HOST"
+{{- else }}
+  export POD_NAME=$(kubectl get pods -n {{ include "quarkus-reference-app.namespace" . }} -l "app={{ .Values.name }}" -o jsonpath="{.items[0].metadata.name}")
+  kubectl port-forward $POD_NAME 8080:8080 -n {{ include "quarkus-reference-app.namespace" . }}
+  echo "Application URL: http://localhost:8080"
+{{- end }}
+
+To check the deployment status:
+  kubectl get all -n {{ include "quarkus-reference-app.namespace" . }}
+
+To view application logs:
+  kubectl logs -f deployment/{{ .Values.name }} -n {{ include "quarkus-reference-app.namespace" . }}
+
+Health endpoints:
+  - Liveness:  /health/live
+  - Readiness: /health/ready
+  - Metrics:   /q/metrics
+
+ArgoCD Sync Waves:
+  This chart uses ArgoCD sync waves for ordered deployment:
+  - Wave -1: Namespace
+  - Wave 0:  ConfigMap, ServiceAccount
+  - Wave 1:  RBAC (Role, RoleBinding)
+  - Wave 2:  Deployment
+  - Wave 3:  Service, Route
+
+For more information, visit:
+  - Documentation: https://validatedpatterns.io
+  - Source: https://github.com/validatedpatterns/ansible-execution-environment

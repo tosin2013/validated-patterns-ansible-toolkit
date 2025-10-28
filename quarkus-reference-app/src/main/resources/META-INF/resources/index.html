@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Validated Patterns - Quarkus Reference Application</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Red Hat Display', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 900px;
+            width: 100%;
+            padding: 40px;
+            animation: fadeIn 0.6s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+
+        .logo {
+            width: 80px;
+            height: 80px;
+            margin: 0 auto 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 40px;
+            color: white;
+            font-weight: bold;
+        }
+
+        h1 {
+            color: #2d3748;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #718096;
+            font-size: 1.2em;
+            margin-bottom: 10px;
+        }
+
+        .version {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            margin-top: 10px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+        }
+
+        .section h2 {
+            color: #2d3748;
+            font-size: 1.5em;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+
+        .links-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .link-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 10px;
+            padding: 20px;
+            text-decoration: none;
+            color: white;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            display: block;
+        }
+
+        .link-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.4);
+        }
+
+        .link-card h3 {
+            font-size: 1.2em;
+            margin-bottom: 8px;
+        }
+
+        .link-card p {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+
+        .api-section {
+            background: #f7fafc;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .api-endpoint {
+            background: white;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .api-endpoint .method {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 3px 10px;
+            border-radius: 5px;
+            font-size: 0.8em;
+            margin-right: 10px;
+            font-weight: bold;
+        }
+
+        .api-endpoint .path {
+            color: #2d3748;
+            font-weight: bold;
+        }
+
+        .api-endpoint .description {
+            color: #718096;
+            font-size: 0.9em;
+            margin-top: 5px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 2px solid #e2e8f0;
+            color: #718096;
+        }
+
+        .footer a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        .status-badge {
+            display: inline-block;
+            background: #48bb78;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="logo">VP</div>
+            <h1>Validated Patterns</h1>
+            <p class="subtitle">Quarkus Reference Application</p>
+            <span class="version">v1.0.0</span>
+            <span class="status-badge">✓ Running</span>
+        </div>
+
+        <div class="section">
+            <h2>📚 Documentation Resources</h2>
+            <div class="links-grid">
+                <a href="https://validatedpatterns.io/" class="link-card" target="_blank">
+                    <h3>🏠 Home</h3>
+                    <p>Main Validated Patterns portal</p>
+                </a>
+                <a href="https://validatedpatterns.io/learn/" class="link-card" target="_blank">
+                    <h3>📖 Learn</h3>
+                    <p>Getting started guides and tutorials</p>
+                </a>
+                <a href="https://validatedpatterns.io/patterns/" class="link-card" target="_blank">
+                    <h3>🎯 Patterns</h3>
+                    <p>Browse available patterns</p>
+                </a>
+                <a href="https://validatedpatterns.io/contribute/" class="link-card" target="_blank">
+                    <h3>🤝 Contribute</h3>
+                    <p>Contribute to the community</p>
+                </a>
+                <a href="https://validatedpatterns.io/blog/" class="link-card" target="_blank">
+                    <h3>📝 Blog</h3>
+                    <p>Latest news and updates</p>
+                </a>
+                <a href="https://github.com/validatedpatterns" class="link-card" target="_blank">
+                    <h3>💻 GitHub</h3>
+                    <p>Source code and examples</p>
+                </a>
+            </div>
+        </div>
+
+        <div class="section">
+            <h2>🔌 API Endpoints</h2>
+            <div class="api-section">
+                <div class="api-endpoint">
+                    <span class="method">GET</span>
+                    <span class="path">/api/example</span>
+                    <div class="description">Get all examples</div>
+                </div>
+                <div class="api-endpoint">
+                    <span class="method">GET</span>
+                    <span class="path">/api/example/{id}</span>
+                    <div class="description">Get example by ID</div>
+                </div>
+                <div class="api-endpoint">
+                    <span class="method">POST</span>
+                    <span class="path">/api/example</span>
+                    <div class="description">Create new example</div>
+                </div>
+                <div class="api-endpoint">
+                    <span class="method">PUT</span>
+                    <span class="path">/api/example/{id}</span>
+                    <div class="description">Update example</div>
+                </div>
+                <div class="api-endpoint">
+                    <span class="method">DELETE</span>
+                    <span class="path">/api/example/{id}</span>
+                    <div class="description">Delete example</div>
+                </div>
+                <div class="api-endpoint">
+                    <span class="method">GET</span>
+                    <span class="path">/health/live</span>
+                    <div class="description">Liveness probe</div>
+                </div>
+                <div class="api-endpoint">
+                    <span class="method">GET</span>
+                    <span class="path">/health/ready</span>
+                    <div class="description">Readiness probe</div>
+                </div>
+                <div class="api-endpoint">
+                    <span class="method">GET</span>
+                    <span class="path">/q/health</span>
+                    <div class="description">Health check (SmallRye Health)</div>
+                </div>
+                <div class="api-endpoint">
+                    <span class="method">GET</span>
+                    <span class="path">/q/metrics</span>
+                    <div class="description">Prometheus metrics</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer">
+            <p>Built with ❤️ using <a href="https://quarkus.io" target="_blank">Quarkus</a> and <a href="https://www.redhat.com/en/technologies/cloud-computing/openshift" target="_blank">OpenShift</a></p>
+            <p style="margin-top: 10px;">Part of the <a href="https://validatedpatterns.io" target="_blank">Validated Patterns</a> framework</p>
+        </div>
+    </div>
+</body>
+</html>

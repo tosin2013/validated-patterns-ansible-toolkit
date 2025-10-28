@@ -1,0 +1,149 @@
+# Global values for Quarkus Reference Application
+# These values are shared across all clusters in the pattern
+# Override these in cluster-specific values files (values-hub.yaml, values-edge.yaml)
+
+# Global pattern metadata
+global:
+  pattern: quarkus-reference-app
+  namespace: quarkus-dev
+  targetRevision: main
+  options:
+    useCSV: false
+    syncPolicy: Automatic
+    installPlanApproval: Automatic
+
+# Quarkus application configuration
+quarkusApp:
+  # Application name
+  name: reference-app
+
+  # Target namespace
+  namespace: quarkus-dev
+
+  # Number of replicas (can be overridden per environment)
+  replicas: 2
+
+  # Container image configuration
+  image:
+    repository: quay.io/validated-patterns/reference-app
+    tag: latest
+    pullPolicy: Always
+
+  # Application configuration
+  config:
+    profile: prod
+    appName: reference-app
+    appVersion: 1.0.0
+    environment: production
+
+  # Resource limits and requests (can be overridden per environment)
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "100m"
+    limits:
+      memory: "256Mi"
+      cpu: "500m"
+
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 8080
+    targetPort: 8080
+
+  # Route configuration (OpenShift)
+  route:
+    enabled: true
+    tls:
+      enabled: true
+      termination: edge
+      insecureEdgeTerminationPolicy: Redirect
+
+  # RBAC configuration
+  rbac:
+    create: true
+
+  # ServiceAccount configuration
+  serviceAccount:
+    create: true
+    name: reference-app
+
+  # Health check configuration
+  healthChecks:
+    liveness:
+      enabled: true
+      path: /health/live
+      port: 8080
+      initialDelaySeconds: 5
+      periodSeconds: 10
+      timeoutSeconds: 3
+      failureThreshold: 3
+    readiness:
+      enabled: true
+      path: /health/ready
+      port: 8080
+      initialDelaySeconds: 5
+      periodSeconds: 5
+      timeoutSeconds: 3
+      failureThreshold: 3
+
+  # Security context
+  # Note: runAsUser is intentionally omitted to allow OpenShift to assign a UID
+  # from the namespace's allowed range (e.g., 1000800000-1000809999)
+  securityContext:
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    capabilities:
+      drop:
+        - ALL
+
+# Security context (root level for Helm chart compatibility)
+# Note: runAsUser is intentionally omitted to allow OpenShift to assign a UID
+# from the namespace's allowed range (e.g., 1000800000-1000819999)
+securityContext:
+  allowPrivilegeEscalation: false
+  runAsNonRoot: true
+  capabilities:
+    drop:
+      - ALL
+
+# ArgoCD configuration
+argocd:
+  # Sync wave annotations for ordered deployment
+  syncWaves:
+    namespace: "-1"      # Infrastructure
+    configmap: "0"       # Configuration
+    serviceaccount: "0"  # Configuration
+    role: "1"            # RBAC
+    rolebinding: "1"     # RBAC
+    deployment: "2"      # Workloads
+    service: "3"         # Networking
+    route: "3"           # Networking
+
+  # Sync policy
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - RespectIgnoreDifferences=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+# Labels applied to all resources
+labels:
+  app: reference-app
+  app.kubernetes.io/name: reference-app
+  app.kubernetes.io/part-of: validated-patterns
+  app.kubernetes.io/component: application
+  app.kubernetes.io/managed-by: argocd
+
+# Annotations applied to all resources
+annotations:
+  validatedpatterns.io/pattern: quarkus-reference-app
+  validatedpatterns.io/deployment-method: gitops

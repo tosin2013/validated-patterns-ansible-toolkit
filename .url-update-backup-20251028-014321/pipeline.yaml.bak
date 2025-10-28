@@ -1,0 +1,131 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: reference-app-pipeline
+  namespace: reference-app
+spec:
+  description: Build, test, and deploy Quarkus reference application
+
+  params:
+  - name: git-url
+    type: string
+    description: Git repository URL
+    default: https://github.com/validated-patterns/reference-app.git
+  - name: git-revision
+    type: string
+    description: Git revision (branch, tag, commit)
+    default: main
+  - name: image-registry
+    type: string
+    description: Container image registry
+    default: quay.io
+  - name: image-namespace
+    type: string
+    description: Container image namespace
+    default: validated-patterns
+  - name: image-name
+    type: string
+    description: Container image name
+    default: reference-app
+  - name: image-tag
+    type: string
+    description: Container image tag
+    default: latest
+  - name: deploy-namespace
+    type: string
+    description: Kubernetes namespace for deployment
+    default: reference-app
+
+  workspaces:
+  - name: shared-workspace
+    description: Shared workspace for pipeline tasks
+
+  tasks:
+  # Clone repository
+  - name: clone-repo
+    taskRef:
+      name: git-clone
+      kind: ClusterTask
+    workspaces:
+    - name: output
+      workspace: shared-workspace
+    params:
+    - name: url
+      value: $(params.git-url)
+    - name: revision
+      value: $(params.git-revision)
+    - name: deleteExisting
+      value: "true"
+
+  # Build application
+  - name: build-app
+    taskRef:
+      name: reference-app-build
+    runAfter:
+    - clone-repo
+    workspaces:
+    - name: source
+      workspace: shared-workspace
+    params:
+    - name: MAVEN_IMAGE
+      value: maven:3.8-openjdk-17
+
+  # Run tests
+  - name: run-tests
+    taskRef:
+      name: reference-app-test
+    runAfter:
+    - build-app
+    workspaces:
+    - name: source
+      workspace: shared-workspace
+    params:
+    - name: MAVEN_IMAGE
+      value: maven:3.8-openjdk-17
+
+  # Build container image
+  - name: build-image
+    taskRef:
+      name: buildah
+      kind: ClusterTask
+    runAfter:
+    - run-tests
+    workspaces:
+    - name: source
+      workspace: shared-workspace
+    params:
+    - name: IMAGE
+      value: $(params.image-registry)/$(params.image-namespace)/$(params.image-name):$(params.image-tag)
+    - name: DOCKERFILE
+      value: ./src/main/docker/Dockerfile.jvm
+    - name: CONTEXT
+      value: .
+
+  # Deploy to Kubernetes
+  - name: deploy-app
+    taskRef:
+      name: reference-app-deploy
+    runAfter:
+    - build-image
+    workspaces:
+    - name: source
+      workspace: shared-workspace
+    params:
+    - name: IMAGE
+      value: $(params.image-registry)/$(params.image-namespace)/$(params.image-name):$(params.image-tag)
+    - name: NAMESPACE
+      value: $(params.deploy-namespace)
+    - name: OVERLAY
+      value: prod
+
+  # Verify deployment
+  - name: verify-deployment
+    taskRef:
+      name: reference-app-verify
+    runAfter:
+    - deploy-app
+    params:
+    - name: NAMESPACE
+      value: $(params.deploy-namespace)
+    - name: DEPLOYMENT
+      value: reference-app

@@ -1,0 +1,20 @@
+---
+# Global pattern configuration for testing
+global:
+  pattern: validated-patterns-ansible-toolkit
+  targetRevision: main
+  namespace: openshift-gitops
+
+  options:
+    syncPolicy: Automatic
+    applicationRetryLimit: 20
+    useCSV: false
+
+  git:
+    # TEST CONFIGURATION - Replace with actual values for testing
+    hostname: git.example.com
+    account: test-user
+    email: test@example.com
+    dev_revision: main
+    username: test-user
+    token: "TEST_TOKEN_REPLACE_ME"  # Use environment variable in actual tests

@@ -1,0 +1,381 @@
+# Quick Start: Deploying Patterns with Ansible Navigator
+
+This guide shows you how to deploy Validated Patterns using Ansible Navigator and the pre-built execution environment.
+
+## Prerequisites
+
+Before you begin, ensure you have:
+
+- **Podman** installed on your system
+- **ansible-navigator** installed (`pip install ansible-navigator`)
+- **OpenShift CLI (oc)** installed
+- Access to an OpenShift cluster
+- Logged into OpenShift (`oc login`)
+
+### Installing Prerequisites
+
+#### Fedora/RHEL/CentOS
+
+```bash
+# Install Podman
+sudo dnf install podman
+
+# Install ansible-navigator
+pip install ansible-navigator
+
+# Install OpenShift CLI
+# Download from: https://mirror.openshift.com/pub/openshift-v4/clients/ocp/
+```
+
+#### Ubuntu/Debian
+
+```bash
+# Install Podman
+sudo apt-get update
+sudo apt-get install podman
+
+# Install ansible-navigator
+pip install ansible-navigator
+```
+
+#### macOS
+
+```bash
+# Install Podman Desktop
+# Download from: https://podman-desktop.io/
+
+# Install ansible-navigator
+pip3 install ansible-navigator
+```
+
+## Quick Start (5 Minutes)
+
+### Step 1: Clone the Repository
+
+```bash
+git clone https://github.com/your-org/validated-patterns-ansible-toolkit.git
+cd validated-patterns-ansible-toolkit
+```
+
+### Step 2: Login to OpenShift
+
+```bash
+# Login to your OpenShift cluster
+oc login --server=https://api.cluster.example.com:6443 --token=YOUR_TOKEN
+
+# Verify you're logged in
+oc whoami
+oc cluster-info
+```
+
+### Step 3: Build or Pull the Execution Environment
+
+**Option A: Build locally (recommended for development)**
+
+```bash
+# Set your Ansible Hub token
+export ANSIBLE_HUB_TOKEN=your_token_here
+
+# Build the execution environment
+make build
+
+# This creates: localhost/ansible-ee-minimal:v5
+```
+
+**Option B: Pull pre-built image (recommended for end users)**
+
+```bash
+# Pull the published image
+make pull-ee
+
+# Or manually:
+podman pull quay.io/validated-patterns/ansible-ee:latest
+```
+
+### Step 4: Deploy a Pattern
+
+```bash
+# Deploy multicloud-gitops pattern
+make deploy-pattern PATTERN_NAME=multicloud-gitops
+
+# That's it! 🎉
+```
+
+## What Just Happened?
+
+When you ran `make deploy-pattern`:
+
+1. **Ansible Navigator** started a Podman container with the execution environment
+2. The container has all required Ansible collections and Python dependencies
+3. Your local directories were mounted into the container
+4. Your kubeconfig was passed through for OpenShift access
+5. The deployment playbook ran inside the container
+6. The pattern was deployed to your OpenShift cluster
+
+## Detailed Workflow
+
+### Deploying Different Patterns
+
+```bash
+# List available patterns
+make list-patterns
+
+# Deploy industrial-edge pattern
+make deploy-pattern PATTERN_NAME=industrial-edge
+
+# Deploy medical-diagnosis pattern
+make deploy-pattern PATTERN_NAME=medical-diagnosis
+```
+
+### Passing Additional Variables
+
+```bash
+# Deploy with custom Git branch
+make deploy-pattern PATTERN_NAME=multicloud-gitops \
+  EXTRA_VARS="-e git_branch=develop"
+
+# Deploy with custom Git URL (using Gitea)
+make deploy-pattern PATTERN_NAME=multicloud-gitops \
+  EXTRA_VARS="-e pattern_git_url=https://gitea-with-admin-gitea.apps.cluster.com/validated-patterns/multicloud-gitops.git"
+
+# Deploy with multiple variables
+make deploy-pattern PATTERN_NAME=multicloud-gitops \
+  EXTRA_VARS="-e git_branch=develop -e debug=true -e validate_certs=false"
+```
+
+### Validating Deployment
+
+```bash
+# Validate the deployed pattern
+make validate-pattern PATTERN_NAME=multicloud-gitops
+```
+
+### Setting Up Gitea (Optional)
+
+```bash
+# Deploy Gitea for local development
+make setup-gitea
+
+# Get Gitea credentials
+./gitea/scripts/get-credentials.sh
+```
+
+## Interactive Mode (Debugging)
+
+For troubleshooting or exploring the deployment:
+
+```bash
+# Run in interactive mode
+make deploy-pattern-interactive PATTERN_NAME=multicloud-gitops
+```
+
+This opens the Ansible Navigator TUI (Text User Interface) where you can:
+- Step through tasks
+- View task output
+- Inspect variables
+- Debug issues
+
+### TUI Navigation
+
+- **Arrow keys**: Navigate
+- **Enter**: Drill down into details
+- **Esc**: Go back
+- **:q**: Quit
+
+## Advanced Usage
+
+### Using ansible-navigator Directly
+
+```bash
+# Run a specific playbook
+ansible-navigator run ansible/playbooks/deploy_pattern.yml \
+  -e pattern_name=multicloud-gitops
+
+# Run with different execution environment image
+ansible-navigator run ansible/playbooks/deploy_pattern.yml \
+  --eei quay.io/validated-patterns/ansible-ee:v1.0.0 \
+  -e pattern_name=multicloud-gitops
+
+# Run in interactive mode
+ansible-navigator run ansible/playbooks/deploy_pattern.yml \
+  -e pattern_name=multicloud-gitops \
+  -m interactive
+
+# Run with custom ansible-navigator config
+ansible-navigator run ansible/playbooks/deploy_pattern.yml \
+  -e pattern_name=multicloud-gitops \
+  --config custom-navigator.yml
+```
+
+### Viewing Configuration
+
+```bash
+# Show effective ansible-navigator configuration
+make show-navigator-config
+
+# Or directly
+ansible-navigator settings --effective
+```
+
+### Checking Logs
+
+```bash
+# View ansible-navigator logs
+tail -f logs/ansible-navigator.log
+
+# View playbook artifacts
+ls -lh artifacts/
+
+# View specific artifact
+cat artifacts/playbook-deploy_pattern-2025-01-24T12-00-00.json | jq .
+```
+
+## Troubleshooting
+
+### Issue: Image Pull Fails
+
+```bash
+# Check Podman connectivity
+podman info
+
+# Pull image manually
+podman pull quay.io/validated-patterns/ansible-ee:latest
+
+# Check image exists
+podman images | grep ansible-ee
+```
+
+### Issue: Volume Mount Errors
+
+```bash
+# Fix SELinux labels (Fedora/RHEL)
+chcon -Rt svirt_sandbox_file_t ansible/
+chcon -Rt svirt_sandbox_file_t patterns/
+chcon -Rt svirt_sandbox_file_t gitea/
+
+# Or use :Z option in volume mounts (already configured)
+```
+
+### Issue: Kubeconfig Not Found
+
+```bash
+# Ensure KUBECONFIG is set
+export KUBECONFIG=~/.kube/config
+
+# Verify you're logged in
+oc whoami
+
+# Check kubeconfig file exists
+ls -la ~/.kube/config
+```
+
+### Issue: Permission Denied
+
+```bash
+# Ensure Podman is configured for rootless
+podman system info | grep rootless
+
+# If needed, configure rootless Podman
+podman system migrate
+```
+
+### Issue: Playbook Fails
+
+```bash
+# Run in interactive mode to debug
+make deploy-pattern-interactive PATTERN_NAME=multicloud-gitops
+
+# Check ansible-navigator logs
+tail -50 logs/ansible-navigator.log
+
+# Run with increased verbosity
+ansible-navigator run ansible/playbooks/deploy_pattern.yml \
+  -e pattern_name=multicloud-gitops \
+  -v
+```
+
+## Best Practices
+
+### 1. Use Make Targets
+
+```bash
+# ✅ Good: Use Make targets
+make deploy-pattern PATTERN_NAME=multicloud-gitops
+
+# ❌ Avoid: Complex ansible-navigator commands
+ansible-navigator run ansible/playbooks/deploy_pattern.yml \
+  --eei localhost/ansible-ee-minimal:v5 \
+  --ce podman \
+  -m stdout \
+  -e pattern_name=multicloud-gitops
+```
+
+### 2. Keep Execution Environment Updated
+
+```bash
+# Rebuild regularly
+make clean build
+
+# Or pull latest
+make pull-ee
+```
+
+### 3. Use Interactive Mode for Debugging
+
+```bash
+# When things go wrong, use interactive mode
+make deploy-pattern-interactive PATTERN_NAME=multicloud-gitops
+```
+
+### 4. Check Logs
+
+```bash
+# Always check logs after deployment
+tail -50 logs/ansible-navigator.log
+```
+
+### 5. Validate After Deployment
+
+```bash
+# Always validate
+make validate-pattern PATTERN_NAME=multicloud-gitops
+```
+
+## Next Steps
+
+### Learn More
+
+- [ADR-007: Ansible Navigator Deployment Strategy](../adr/ADR-007-ansible-navigator-deployment.md)
+- [Ansible Navigator Documentation](https://ansible.readthedocs.io/projects/navigator/)
+- [Validated Patterns Documentation](https://validatedpatterns.io/)
+
+### Explore Patterns
+
+- [Multicloud GitOps Pattern](https://validatedpatterns.io/patterns/multicloud-gitops/)
+- [Industrial Edge Pattern](https://validatedpatterns.io/patterns/industrial-edge/)
+- [Medical Diagnosis Pattern](https://validatedpatterns.io/patterns/medical-diagnosis/)
+
+### Contribute
+
+- Review [Development Rules](../adr/ADR-DEVELOPMENT-RULES.md)
+- Check [Project Roadmap](../PROJECT-ROADMAP.md)
+- Read [Getting Started Guide](../GETTING-STARTED-WITH-PLANNING.md)
+
+## Summary
+
+You've learned how to:
+- ✅ Install prerequisites (Podman, ansible-navigator)
+- ✅ Clone the repository
+- ✅ Build or pull the execution environment
+- ✅ Deploy patterns with a single command
+- ✅ Validate deployments
+- ✅ Use interactive mode for debugging
+- ✅ Troubleshoot common issues
+
+**Ready to deploy?** Run:
+
+```bash
+make deploy-pattern PATTERN_NAME=multicloud-gitops
+```
+
+Happy deploying! 🚀

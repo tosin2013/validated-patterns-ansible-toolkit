@@ -1,0 +1,53 @@
+---
+# Complete pattern deployment workflow
+# Integrates all 6 roles for end-to-end deployment
+
+- name: Deploy Complete Validated Pattern
+  hosts: localhost
+  gather_facts: no
+
+  tasks:
+    - name: Validate cluster prerequisites
+      include_role:
+        name: validated_patterns_prerequisites
+      tags: prerequisites
+
+    - name: Deploy validatedpatterns/common
+      include_role:
+        name: validated_patterns_common
+      tags: common
+
+    - name: Setup Gitea development environment
+      include_role:
+        name: validated_patterns_gitea
+      tags: gitea
+
+    - name: Manage secrets and credentials
+      include_role:
+        name: validated_patterns_secrets
+      tags: secrets
+
+    - name: Deploy selected pattern
+      include_role:
+        name: validated_patterns_deploy
+      tags: deploy
+
+    - name: Run comprehensive validation
+      include_role:
+        name: validated_patterns_validate
+      tags: validate
+
+    - name: Display deployment completion
+      debug:
+        msg: |
+          ✅ DEPLOYMENT COMPLETE!
+
+          All 6 roles executed successfully:
+          1. ✅ Prerequisites validated
+          2. ✅ Common deployed
+          3. ✅ Gitea configured
+          4. ✅ Secrets managed
+          5. ✅ Pattern deployed
+          6. ✅ Validation passed
+
+          Pattern is ready for use!

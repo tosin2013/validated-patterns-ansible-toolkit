@@ -1,0 +1,96 @@
+---
+# Playbook to install OpenShift GitOps Operator
+# ADR: docs/adr/ADR-010-openshift-gitops-operator.md
+# Purpose: Install and configure OpenShift GitOps for Validated Patterns
+# Uses: openshift-gitops/ directory with Kustomize manifests
+
+- name: Install OpenShift GitOps Operator
+  hosts: localhost
+  gather_facts: no
+  connection: local
+
+  vars:
+    gitops_namespace: openshift-gitops
+    operator_namespace: openshift-operators
+    gitops_manifests_dir: "{{ playbook_dir }}/../../openshift-gitops"
+
+  tasks:
+    - name: Display installation information
+      debug:
+        msg: |
+          ========================================
+          Installing OpenShift GitOps Operator
+          ========================================
+          Operator Namespace: {{ operator_namespace }}
+          GitOps Namespace: {{ gitops_namespace }}
+          Manifests Directory: {{ gitops_manifests_dir }}
+          ========================================
+
+    - name: Apply OpenShift GitOps manifests using Kustomize
+      kubernetes.core.k8s:
+        state: present
+        src: "{{ gitops_manifests_dir }}"
+      register: gitops_apply
+
+    - name: Wait for operator to be installed
+      kubernetes.core.k8s_info:
+        api_version: operators.coreos.com/v1alpha1
+        kind: ClusterServiceVersion
+        namespace: "{{ operator_namespace }}"
+      register: operator_csv
+      until:
+        - operator_csv.resources | length > 0
+        - operator_csv.resources | selectattr('metadata.name', 'search', 'openshift-gitops') | list | length > 0
+        - (operator_csv.resources | selectattr('metadata.name', 'search', 'openshift-gitops') | first).status.phase == 'Succeeded'
+      retries: 30
+      delay: 10
+
+    - name: Wait for GitOps namespace to be created
+      kubernetes.core.k8s_info:
+        api_version: v1
+        kind: Namespace
+        name: "{{ gitops_namespace }}"
+      register: gitops_ns
+      until:
+        - gitops_ns.resources | length > 0
+      retries: 20
+      delay: 5
+
+    - name: Wait for ArgoCD instance to be ready
+      kubernetes.core.k8s_info:
+        api_version: argoproj.io/v1alpha1
+        kind: ArgoCD
+        name: openshift-gitops
+        namespace: "{{ gitops_namespace }}"
+      register: argocd_instance
+      until:
+        - argocd_instance.resources | length > 0
+        - argocd_instance.resources[0].status.phase is defined
+        - argocd_instance.resources[0].status.phase == 'Available'
+      retries: 30
+      delay: 10
+      ignore_errors: yes
+
+    - name: Get ArgoCD server route
+      kubernetes.core.k8s_info:
+        api_version: route.openshift.io/v1
+        kind: Route
+        name: openshift-gitops-server
+        namespace: "{{ gitops_namespace }}"
+      register: argocd_route
+
+    - name: Display installation summary
+      debug:
+        msg: |
+          ========================================
+          ✅ OpenShift GitOps Installation Complete
+          ========================================
+          Operator Status: {{ (operator_csv.resources | selectattr('metadata.name', 'search', 'openshift-gitops') | first).status.phase }}
+          GitOps Namespace: {{ gitops_namespace }}
+          ArgoCD Server: {{ argocd_route.resources[0].spec.host if argocd_route.resources else 'Not available yet' }}
+
+          Next Steps:
+          1. Access ArgoCD UI: https://{{ argocd_route.resources[0].spec.host if argocd_route.resources else 'pending' }}
+          2. Get admin password: oc get secret openshift-gitops-cluster -n {{ gitops_namespace }} -o jsonpath='{.data.admin\.password}' | base64 -d
+          3. Run prerequisites validation: ansible-playbook ansible/playbooks/test_prerequisites.yml
+          ========================================

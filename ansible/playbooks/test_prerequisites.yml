@@ -1,0 +1,20 @@
+---
+# Test playbook for validated_patterns_prerequisites role
+
+- name: Test Validated Patterns Prerequisites
+  hosts: localhost
+  gather_facts: no
+
+  tasks:
+    - name: Run prerequisites validation
+      include_role:
+        name: validated_patterns_prerequisites
+      vars:
+        validated_patterns_min_nodes: 1  # Reduced for testing
+        validated_patterns_min_cpu: 1
+        validated_patterns_min_memory: 1
+      tags: prerequisites
+
+    - name: Display test completion
+      debug:
+        msg: "✅ Prerequisites validation test completed successfully!"

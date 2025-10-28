@@ -54,6 +54,12 @@ jobs:
           QUAY_USERNAME: ${{ secrets.QUAY_USERNAME }}
           QUAY_PASSWORD: ${{ secrets.QUAY_PASSWORD }}
 
+      - name: Configure OpenShift client tools
+        run: |
+          # Create oc-install.env to enable oc/kubectl installation via tarball
+          mkdir -p files/optional-configs
+          echo "OC_VERSION=stable-4.19" > files/optional-configs/oc-install.env
+
       - name: Build
         env:
           ANSIBLE_HUB_TOKEN: ${{ secrets.ANSIBLE_HUB_TOKEN }}

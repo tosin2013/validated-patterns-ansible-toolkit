@@ -1,0 +1,25 @@
+---
+# Main tasks for validated_patterns_common role
+# Purpose: Deploy validatedpatterns/common with multisource architecture
+
+- name: Display role purpose
+  debug:
+    msg: "Deploying validatedpatterns/common with multisource architecture"
+
+- name: Include rhvp.cluster_utils collection installation
+  include_tasks: install_collection.yml
+
+- name: Include Helm repository configuration
+  include_tasks: configure_helm_repos.yml
+
+- name: Include clustergroup-chart deployment
+  include_tasks: deploy_clustergroup_chart.yml
+
+- name: Display deployment summary
+  debug:
+    msg: |
+      ✅ validatedpatterns/common deployed successfully!
+      - rhvp.cluster_utils collection installed
+      - Helm repositories configured
+      - clustergroup-chart v0.9.* deployed
+      - Multisource configuration enabled

@@ -57,4 +57,3 @@ repos:
 # Global configuration
 default_stages: [pre-commit]
 fail_fast: false
-

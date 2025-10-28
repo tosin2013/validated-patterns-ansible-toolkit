@@ -58,12 +58,15 @@ ignore: |
   # Helm chart templates (contain Go templating)
   quarkus-reference-app/charts/**/templates/*.yaml
   quarkus-reference-app/charts/**/templates/*.yml
-  
+
+  # Quarkus reference app (has intentional formatting for readability)
+  quarkus-reference-app/tekton/*.yaml
+  quarkus-reference-app/k8s/**/*.yaml
+
   # Generated files
   .github/workflows/*.yml
-  
+
   # External dependencies
   node_modules/
   .venv/
   venv/
-

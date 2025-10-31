@@ -114,41 +114,70 @@ priority:
 # ANSIBLE ROLES (Core Value - Reusable Components)
 # ============================================================================
 
-# 7 Production-Ready Ansible Roles (3,460+ LOC):
+# 8 Production-Ready Ansible Roles (3,460+ LOC):
 # 1. validated_patterns_prerequisites - Cluster validation
 #    Location: /ansible/roles/validated_patterns_prerequisites/
 #    Purpose: Validate OpenShift version, operators, resources
 #    Reusable: Yes, copy into any project
+#    Tasks: check_openshift_version.yml, check_operators.yml, check_cluster_resources.yml,
+#           check_network.yml, check_rbac.yml, check_storage.yml
 #
 # 2. validated_patterns_common - Helm and GitOps infrastructure
 #    Location: /ansible/roles/validated_patterns_common/
 #    Purpose: Install Helm, ArgoCD, clustergroup chart
 #    Reusable: Yes, foundational infrastructure
+#    Tasks: install_collection.yml, configure_helm_repos.yml, deploy_clustergroup_chart.yml
 #
 # 3. validated_patterns_operator - VP Operator wrapper (simplified)
 #    Location: /ansible/roles/validated_patterns_operator/
 #    Purpose: Simplified end-user deployment via VP Operator
 #    Reusable: Yes, for end-user workflows
+#    Tasks: install_operator.yml, create_pattern_cr.yml, wait_for_gitops.yml, validate_deployment.yml
 #
 # 4. validated_patterns_deploy - Application deployment
 #    Location: /ansible/roles/validated_patterns_deploy/
 #    Purpose: Deploy applications via ArgoCD, BuildConfigs
 #    Reusable: Yes, adapt for any application
+#    Tasks: validate_pattern.yml, configure_argocd.yml, deploy_pattern.yml, verify_deployment.yml
 #
 # 5. validated_patterns_gitea - Git repository management
 #    Location: /ansible/roles/validated_patterns_gitea/
 #    Purpose: Local development environment with Gitea
 #    Reusable: Yes, for local testing
+#    Tasks: deploy_operator.yml, create_instance.yml, configure_users.yml, setup_repositories.yml
 #
 # 6. validated_patterns_secrets - Secrets management
 #    Location: /ansible/roles/validated_patterns_secrets/
 #    Purpose: Sealed secrets, RBAC, secret management
 #    Reusable: Yes, security best practices
+#    Tasks: validate_secrets.yml, setup_sealed_secrets.yml, manage_credentials.yml
 #
 # 7. validated_patterns_validate - Comprehensive validation
 #    Location: /ansible/roles/validated_patterns_validate/
 #    Purpose: Pre/post deployment validation, health checks
 #    Reusable: Yes, validation framework
+#    Tasks: validate_pre_deployment.yml, validate_deployment.yml, validate_post_deployment.yml,
+#           validate_health.yml
+#
+# 8. validated_patterns_cleanup - Resource cleanup
+#    Location: /ansible/roles/validated_patterns_cleanup/
+#    Purpose: Clean up Pattern CRs, ArgoCD apps, namespaces
+#    Reusable: Yes, ESSENTIAL for testing and development
+#    Tasks: cleanup_argocd_applications.yml, cleanup_pattern_cr.yml, cleanup_namespaces.yml,
+#           cleanup_gitops.yml (optional, rarely used), cleanup_gitea.yml (optional, rarely used),
+#           cleanup_operator.yml (optional, rarely used)
+#    Note: ALWAYS use this role before E2E tests to ensure clean state
+#    Default behavior: Retains GitOps (from common/), Gitea (dev), and Operator (reusable)
+
+# ROLE TASK REUSABILITY:
+# Each role uses modular task files (include_tasks) that can be reused independently:
+#
+# Example: Reuse specific validation tasks in E2E tests
+# - include_tasks: ../../ansible/roles/validated_patterns_prerequisites/tasks/check_openshift_version.yml
+# - include_tasks: ../../ansible/roles/validated_patterns_validate/tasks/validate_health.yml
+#
+# AVOID: Re-running entire roles when only specific checks are needed
+# - include_role: name: validated_patterns_prerequisites  # Runs ALL checks unnecessarily
 
 # ============================================================================
 # REFERENCE APPLICATIONS (Examples - Not the Only Options)
@@ -222,6 +251,40 @@ priority:
 # 4. EE building is INFRASTRUCTURE - not the primary focus
 # 5. GPL v3.0 LICENSE - allows copying and modification
 
+# CRITICAL CLARIFICATIONS (Common Confusion Points):
+#
+# 1. PATTERN NAME: "validated-patterns-ansible-toolkit" is the REFERENCE PATTERN NAME
+#    - Users should change this to their own pattern name in:
+#      - values-global.yaml (global.pattern)
+#      - values-hub.yaml (pattern-specific config)
+#      - cleanup role variables (cleanup_pattern_name)
+#    - This is a TEMPLATE - not meant to be used as-is in production
+#
+# 2. VALUES FILES: values-global.yaml and values-hub.yaml are EXAMPLES
+#    - Users should customize these with their own:
+#      - Git repository URLs (point to their fork or custom repo)
+#      - Pattern names
+#      - Namespace names
+#      - Application configurations
+#    - These files are NOT used by EE build - only by pattern deployment
+#
+# 3. DEPLOYMENT PLAYBOOKS:
+#    - ansible/playbooks/deploy_complete_pattern.yml - Development workflow (uses roles 1-2, 4-7)
+#    - Use validated_patterns_operator role directly - End-user workflow (simplified)
+#    - Choose based on need for granular control vs. simplicity
+#
+# 4. COMMON SUBTREE (common/):
+#    - Used DURING PATTERN DEPLOYMENT (not EE build)
+#    - Contains pattern installation chart and scripts
+#    - common/Makefile provides operator-deploy, validate-prereq, etc.
+#    - Keep synchronized with upstream validatedpatterns/common.git
+#
+# 5. DUAL WORKFLOWS:
+#    - Development Workflow: Step-by-step using individual roles (prerequisites -> common -> deploy -> validate)
+#      Use when: Building new patterns, debugging, learning, customizing
+#    - End-User Workflow: Single operator role (validated_patterns_operator)
+#      Use when: Deploying existing patterns, production, simplicity needed
+
 # WHEN WORKING WITH THIS REPOSITORY:
 # - Focus on reusability: make roles easy to extract and use
 # - Document multiple application examples (not just Quarkus)
@@ -255,3 +318,147 @@ priority:
 # - Development: ansible-playbook ansible/playbooks/deploy_complete_pattern.yml
 # - End-User: Use VP Operator (see END-USER-GUIDE.md)
 # - Testing: See /tests/ directory for integration tests
+
+# ============================================================================
+# END-TO-END TESTING & CLEANUP (CRITICAL FOR DEVELOPMENT)
+# ============================================================================
+
+# CLEANUP BEFORE TESTING (MANDATORY):
+# Always clean up before running e2e tests to ensure fresh state and avoid conflicts.
+#
+# Option 1: Use validated_patterns_cleanup role (RECOMMENDED for E2E tests)
+# - include_role:
+#     name: validated_patterns_cleanup
+#   # Default behavior retains shared infrastructure:
+#   # cleanup_gitops: false   # Keep ArgoCD (from common/ subtree)
+#   # cleanup_gitea: false    # Keep Gitea (for development)
+#   # cleanup_operator: false # Keep operator (reusable)
+#
+# Option 2: Automated cleanup script
+# ./tests/integration/cleanup/cleanup.sh
+#
+# Option 3: Ansible cleanup playbook
+# ansible-playbook tests/integration/cleanup/cleanup_deployment.yml
+#
+# Option 4: Manual cleanup using oc commands
+# oc delete pattern <pattern-name> -n openshift-operators
+# oc delete applications --all -n openshift-gitops
+# oc delete namespace validated-patterns quarkus-app-dev quarkus-app-prod
+#
+# RESOURCES TO CLEAN (checklist):
+# ✅ Pattern Custom Resources (oc get pattern -A) — ALWAYS
+# ✅ ArgoCD Applications (oc get applications -n openshift-gitops) — ALWAYS
+# ✅ Application namespaces (validated-patterns, quarkus-app-*, etc.) — ALWAYS
+# ✅ ConfigMaps and Secrets created by patterns — ALWAYS
+# ✅ BuildConfigs and ImageStreams (if testing builds) — ALWAYS
+# ✅ Routes and Services (application-specific) — ALWAYS
+# ⚠️  OpenShift GitOps namespace — RARELY (only if common/ subtree requires redeployment)
+# ⚠️  Gitea namespace — RARELY (only if starting completely fresh)
+# ⚠️  Subscriptions and CSVs — RARELY (only if testing operator installation itself)
+
+# E2E TESTING BEST PRACTICES:
+# 1. Clean up before testing: Use validated_patterns_cleanup role (MANDATORY)
+# 2. Use Ansible roles for deployment: Use validated_patterns_operator or validated_patterns_deploy
+# 3. Reuse role tasks, not entire roles: Include specific task files for validation
+# 4. Test in isolation: Each e2e test should be independently runnable
+# 5. Validate cleanup: Ensure all resources removed after completion
+# 6. Document test scenarios: Clearly explain what each test validates
+#
+# Example: E2E test structure using roles
+# - name: Pre-test cleanup
+#   include_role:
+#     name: validated_patterns_cleanup
+#
+# - name: Deploy pattern
+#   include_role:
+#     name: validated_patterns_operator
+#
+# - name: Validate deployment (reuse specific tasks)
+#   include_tasks: ../../ansible/roles/validated_patterns_validate/tasks/validate_health.yml
+#
+# - name: Post-test cleanup
+#   include_role:
+#     name: validated_patterns_cleanup
+#
+# AVOID: Re-running entire roles unnecessarily during validation
+# - include_role: name: validated_patterns_prerequisites  # Runs ALL checks
+
+# VERIFY CLEANUP COMPLETENESS:
+# oc get pattern -A
+# oc get applications -n openshift-gitops
+# oc get namespaces | grep -E 'validated-patterns|quarkus-app'
+# oc get csv -n openshift-operators | grep patterns-operator
+
+# ============================================================================
+# COMMON SUBTREE MANAGEMENT (CRITICAL)
+# ============================================================================
+
+# The common/ directory is a git subtree from:
+# https://github.com/validatedpatterns/common.git
+#
+# ⚠️  IMPORTANT: This repository updates FREQUENTLY. Keep in sync!
+#
+# ARCHITECTURE NOTE:
+# - common/ is NEVER used standalone - it's imported as a subtree into each pattern
+# - GitOps/ArgoCD is deployed BY THE COMMON SUBTREE
+# - This is why cleanup typically RETAINS GitOps (it's shared infrastructure)
+# - Only delete GitOps when common/ subtree changes require redeployment
+#
+# UPDATE PROCEDURE (before major development):
+# Option 1: Using utilities script (recommended)
+# curl -s https://raw.githubusercontent.com/validatedpatterns/utilities/main/scripts/update-common-everywhere.sh | bash
+#
+# Option 2: Manual update
+# git remote add -f common-upstream https://github.com/validatedpatterns/common.git
+# git merge -s subtree -Xtheirs -Xsubtree=common common-upstream/main
+#
+# CHECK VERSION:
+# cd common/ && git log --oneline -n 5 && cd ..
+#
+# WHEN TO UPDATE:
+# ✅ Before starting new feature development
+# ✅ Before running comprehensive e2e tests
+# ✅ When pattern deployment fails with unknown errors
+# ✅ When upstream releases new features/fixes
+# ✅ Monthly or before major releases
+#
+# VERIFY INTEGRATION:
+# make -f common/Makefile help
+
+# ============================================================================
+# MAKEFILE INTEGRATION
+# ============================================================================
+
+# TWO MAKEFILES WORK TOGETHER:
+# 1. Root Makefile: EE building, testing, docs, pattern deployment via ansible-navigator
+# 2. Common Makefile (common/Makefile): Pattern installation, validation, secrets, ArgoCD health
+#
+# ROOT MAKEFILE COMMANDS:
+# make build test                    # Build and test EE
+# make deploy-pattern PATTERN_NAME=<name>
+# make validate-pattern PATTERN_NAME=<name>
+#
+# COMMON MAKEFILE COMMANDS:
+# make -f common/Makefile operator-deploy        # Deploy via VP Operator
+# make -f common/Makefile validate-prereq        # Verify prerequisites
+# make -f common/Makefile validate-origin        # Verify git access
+# make -f common/Makefile load-secrets           # Load secrets
+# make -f common/Makefile argo-healthcheck       # Check ArgoCD apps
+# make -f common/Makefile uninstall              # Uninstall pattern
+#
+# EXAMPLE WORKFLOW (using Ansible roles):
+# 1. Update common: curl -s https://raw.githubusercontent.com/validatedpatterns/utilities/main/scripts/update-common-everywhere.sh | bash
+# 2. Clean cluster: ansible-playbook -e cleanup_confirm=false ansible/playbooks/cleanup_pattern.yml (or use role directly)
+# 3. Build EE: make build test
+# 4. Deploy pattern: ansible-playbook ansible/playbooks/deploy_complete_pattern.yml (or use validated_patterns_operator role)
+# 5. Validate: use validated_patterns_validate role or specific task files
+# 6. Run e2e tests: ansible-navigator run tests/integration/playbooks/test_end_to_end.yml
+# 7. Post-test cleanup: use validated_patterns_cleanup role
+#
+# ALTERNATIVE WORKFLOW (using Makefiles):
+# 1. Update common: curl -s https://raw.githubusercontent.com/validatedpatterns/utilities/main/scripts/update-common-everywhere.sh | bash
+# 2. Clean cluster: ./tests/integration/cleanup/cleanup.sh
+# 3. Build EE: make build test
+# 4. Deploy pattern: make -f common/Makefile operator-deploy
+# 5. Validate: make -f common/Makefile validate-prereq argo-healthcheck
+# 6. Run e2e tests: ansible-navigator run tests/integration/playbooks/test_end_to_end.yml

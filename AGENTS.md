@@ -28,6 +28,48 @@ Example: `CONTAINER_ENGINE=podman TARGET_TAG=v5 make build test`.
 - `make -f common/Makefile argo-healthcheck` — check all ArgoCD applications are synced.
 - `make -f common/Makefile uninstall` — uninstall pattern and clean up resources.
 
+## End-to-End Deployment Workflow
+
+### Quick Start for Users
+The recommended workflow for deploying patterns end-to-end:
+
+```bash
+# 1. Build and test the execution environment
+make build test
+
+# 2. Validate cluster prerequisites (safe, non-destructive)
+make check-prerequisites
+
+# 3. Deploy complete pattern using Ansible roles
+make end2end-deployment
+
+# 4. For interactive debugging mode
+make end2end-deployment-interactive
+
+# 5. Clean up resources when done
+make end2end-cleanup
+```
+
+### Key Targets
+- **`make check-prerequisites`** — Validate cluster readiness without making changes
+- **`make end2end-deployment`** — Deploy complete pattern using all Ansible roles (MAIN ENTRY POINT)
+- **`make end2end-deployment-interactive`** — Same deployment in interactive mode for debugging
+- **`make end2end-cleanup`** — Remove pattern resources (retains shared infrastructure)
+- **`make end2end-help`** — Show complete workflow documentation
+
+### How It Works
+- **Orchestration:** Pure Ansible roles (modular, reusable, debuggable)
+- **Applications:** Deployed via ArgoCD with Helm charts (GitOps)
+- **Playbooks:** 
+  - `ansible/playbooks/deploy_complete_pattern.yml` — Main deployment
+  - `ansible/playbooks/cleanup_pattern.yml` — Safe cleanup
+  - `ansible/playbooks/test_prerequisites.yml` — Prerequisite validation
+
+### Integration with common/Makefile
+- **Root Makefile (here):** Development deployment using Ansible roles
+- **Common Makefile:** Alternative end-user path using Helm operator
+- Both paths available; choose based on control needs (Ansible for dev, Helm for simplicity)
+
 ## Coding Style & Naming Conventions
 - YAML: 2-space indent, no tabs, lowercase keys with hyphens; files end with `.yml`.
 - Keep `execution-environment.yml` minimal; add deps to `files/*` instead of inline.
@@ -275,6 +317,213 @@ ansible-navigator run tests/integration/playbooks/test_end_to_end.yml
 - For private mirrors, adjust `ansible.cfg` and pip/yum config via `additional_build_steps` and mounted files.
 - Use `podman` as the standard container engine in this repo and CI.
 - **Secrets management**: Use validated_patterns_secrets role; supports Vault and Kubernetes backends.
+
+## Secrets Management Guidelines (CRITICAL - MUST IMPLEMENT)
+
+**⚠️ IMPORTANT: Every pattern deployment MUST implement proper secrets management. This is not optional.**
+
+### Overview
+
+Secrets management is critical for:
+- 🔐 Database credentials
+- 🔑 API keys and tokens  
+- 📝 TLS certificates
+- 🔓 SSH keys and passphrases
+- 🛡️ OAuth and authentication credentials
+- 🔑 Third-party service credentials
+
+### Red Hat OpenShift External Secrets Operator (RECOMMENDED)
+
+For production deployments on OpenShift, use the **External Secrets Operator**. This is the industry-standard approach recommended by Red Hat.
+
+📖 **[Red Hat Official Documentation: External Secrets Operator for Red Hat OpenShift](https://docs.redhat.com/en/documentation/openshift_container_platform/4.19/html/security_and_compliance/external-secrets-operator-for-red-hat-openshift)**
+
+**Key features**:
+- ✅ Centralized secrets management (AWS Secrets Manager, HashiCorp Vault, Azure Key Vault, etc.)
+- ✅ Automatic secret synchronization and rotation
+- ✅ GitOps-friendly (SecretStore and ClusterSecretStore CRDs)
+- ✅ Fine-grained access control and RBAC
+- ✅ Audit logging for compliance (PCI-DSS, HIPAA, SOC2)
+- ✅ Red Hat-supported and maintained
+
+### Toolkit Secrets Implementation
+
+The `validated_patterns_secrets` role provides:
+
+```bash
+# Location: ansible/roles/validated_patterns_secrets/
+
+# Capabilities:
+# ✓ External Secrets Operator setup and configuration
+# ✓ SecretStore creation for your backend (Vault, AWS, Azure, etc.)
+# ✓ Secret generation and validation
+# ✓ Secret rotation policies
+# ✓ RBAC and access control
+# ✓ Compliance verification
+```
+
+### Secrets Backends Supported
+
+1. **External Secrets Operator + AWS Secrets Manager** (PRODUCTION RECOMMENDED)
+   - Centralized secret storage in AWS
+   - Automatic rotation support
+   - Enterprise-grade security
+   - See: [ESO AWS SecretStore](https://external-secrets.io/latest/provider/aws-secrets-manager/)
+
+2. **External Secrets Operator + HashiCorp Vault** (ENTERPRISE RECOMMENDED)
+   - Complete secrets management platform
+   - Policy-based access control
+   - Audit logging and compliance
+   - Multi-backend support
+   - See: [ESO Vault Documentation](https://external-secrets.io/latest/provider/hashicorp-vault/)
+
+3. **External Secrets Operator + Azure Key Vault** (AZURE CLOUD)
+   - Native Azure integration
+   - Managed service
+   - Role-based access control
+   - See: [ESO Azure Documentation](https://external-secrets.io/latest/provider/azure-key-vault/)
+
+4. **Sealed Secrets** (GitOps-FRIENDLY, DEVELOPMENT)
+   - Secrets encrypted at rest in git
+   - Version-controlled secrets
+   - Good for development and testing
+   - NOT recommended for production sensitive data
+
+5. **Kubernetes Secrets** (DEVELOPMENT ONLY - NOT PRODUCTION)
+   - Built-in Kubernetes secrets
+   - Quick setup for testing
+   - Secrets stored as base64 (NOT encrypted)
+   - ❌ **NEVER use for production credentials**
+
+### Implementation Steps
+
+#### Step 1: Choose Your Backend
+```bash
+# Determine your secrets backend:
+# - AWS Secrets Manager (if using AWS)
+# - HashiCorp Vault (enterprise choice)
+# - Azure Key Vault (if using Azure)
+# - GCP Secret Manager (if using GCP)
+# - Sealed Secrets (for GitOps-friendly development)
+```
+
+#### Step 2: Configure the Secrets Role
+```bash
+# Edit your pattern's deployment playbook
+# to include the validated_patterns_secrets role with appropriate backend:
+
+- name: Configure Secrets Backend
+  include_role:
+    name: validated_patterns_secrets
+  vars:
+    # Example: Using Vault backend
+    secrets_backend: vault
+    vault_addr: "https://vault.example.com"
+    vault_token: "{{ vault_credentials }}"
+    vault_path: "secret/data/my-pattern"
+```
+
+#### Step 3: Create SecretStore
+```yaml
+# Example SecretStore for Vault
+apiVersion: external-secrets.io/v1beta1
+kind: SecretStore
+metadata:
+  name: vault-secretstore
+  namespace: my-pattern
+spec:
+  provider:
+    vault:
+      server: "https://vault.example.com"
+      path: "secret/data"
+      auth:
+        kubernetes:
+          mountPath: "kubernetes"
+          role: "my-pattern-sa"
+```
+
+#### Step 4: Define External Secrets
+```yaml
+# Example ExternalSecret
+apiVersion: external-secrets.io/v1beta1
+kind: ExternalSecret
+metadata:
+  name: app-credentials
+  namespace: my-pattern
+spec:
+  refreshInterval: 1h
+  secretStoreRef:
+    name: vault-secretstore
+    kind: SecretStore
+  target:
+    name: app-credentials
+    creationPolicy: Owner
+  data:
+    - secretKey: db-password
+      remoteRef:
+        key: database
+        property: password
+    - secretKey: api-key
+      remoteRef:
+        key: api
+        property: key
+```
+
+#### Step 5: Use Secrets in Deployments
+```yaml
+# Reference the External Secret in your deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-app
+spec:
+  template:
+    spec:
+      containers:
+      - name: app
+        env:
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: app-credentials
+              key: db-password
+        - name: API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: app-credentials
+              key: api-key
+```
+
+### Deployment Checklist
+
+Before deploying any pattern, verify:
+
+- ✅ **Backend selected** (AWS, Vault, Azure, GCP, or Sealed Secrets)
+- ✅ **Backend credentials configured** in cluster or via OIDC
+- ✅ **validated_patterns_secrets role** included in playbook
+- ✅ **SecretStore created** in the pattern namespace
+- ✅ **External Secrets defined** for each credential type
+- ✅ **Rotations configured** (if backend supports it)
+- ✅ **RBAC policies set** (who can read/write secrets)
+- ✅ **Audit logging enabled** (for compliance requirements)
+- ✅ **Tested with dummy values** (non-sensitive credentials)
+
+### Reference Documentation
+
+- 📖 [Red Hat External Secrets Operator](https://docs.redhat.com/en/documentation/openshift_container_platform/4.19/html/security_and_compliance/external-secrets-operator-for-red-hat-openshift)
+- 📖 [External Secrets Operator Project](https://external-secrets.io/)
+- 📖 [Toolkit Secrets Role](ansible/roles/validated_patterns_secrets/README.md)
+- 📖 [ONBOARDING.md Secrets Section](ONBOARDING.md#part-4-secrets-management-critical---must-have)
+
+### Common Secrets Mistakes (AVOID)
+
+- ❌ **Storing secrets in ConfigMaps** — Use External Secrets Operator instead
+- ❌ **Committing secrets to git** — Even encrypted secrets should use proper backend
+- ❌ **Using base64-encoded "secrets"** — Base64 is NOT encryption; use real encryption backends
+- ❌ **Hardcoding credentials** — Always externalize to backend
+- ❌ **Single shared credentials** — Use per-application and per-environment secrets
+- ❌ **No rotation** — Implement automatic rotation policies
+- ❌ **No audit logging** — Track all secret access for compliance
 
 ## Agent-Specific Instructions
 - Scope: entire repo. Preserve file layout and target names.

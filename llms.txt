@@ -148,9 +148,12 @@ priority:
 #
 # 6. validated_patterns_secrets - Secrets management
 #    Location: /ansible/roles/validated_patterns_secrets/
-#    Purpose: Sealed secrets, RBAC, secret management
+#    Purpose: Secrets management using External Secrets Operator, Vault, Sealed Secrets
 #    Reusable: Yes, security best practices
 #    Tasks: validate_secrets.yml, setup_sealed_secrets.yml, manage_credentials.yml
+#    CRITICAL: Secrets management is MANDATORY for every pattern deployment
+#    Backends: External Secrets Operator (AWS, Vault, Azure, GCP), Sealed Secrets, Kubernetes Secrets
+#    Red Hat Docs: https://docs.redhat.com/en/documentation/openshift_container_platform/4.19/html/security_and_compliance/external-secrets-operator-for-red-hat-openshift
 #
 # 7. validated_patterns_validate - Comprehensive validation
 #    Location: /ansible/roles/validated_patterns_validate/
@@ -222,7 +225,68 @@ priority:
 # - Purpose: Simplified deployment via Validated Patterns Operator
 
 # ============================================================================
-# DOCUMENTATION STRUCTURE (Diataxis Framework)
+# SECRETS MANAGEMENT (CRITICAL - MANDATORY FOR EVERY DEPLOYMENT)
+# ============================================================================
+
+# IMPORTANT: Secrets management is NOT OPTIONAL - every pattern MUST implement it properly.
+#
+# REQUIRED READING:
+# 📖 Red Hat OpenShift External Secrets Operator Documentation:
+#    https://docs.redhat.com/en/documentation/openshift_container_platform/4.19/html/security_and_compliance/external-secrets-operator-for-red-hat-openshift
+#
+# TOOLKIT IMPLEMENTATION:
+# The validated_patterns_secrets role provides comprehensive secrets management:
+# - Location: /ansible/roles/validated_patterns_secrets/
+# - Includes: External Secrets Operator setup, SecretStore creation, RBAC, audit logging
+# - Must be included: In every pattern deployment playbook
+# - Documentation: See /docs/ and AGENTS.md "Secrets Management Guidelines"
+#
+# RECOMMENDED BACKENDS (Production Priority):
+# 1. External Secrets Operator + AWS Secrets Manager (Cloud-native, AWS environments)
+# 2. External Secrets Operator + HashiCorp Vault (Enterprise, multi-backend)
+# 3. External Secrets Operator + Azure Key Vault (Azure environments)
+# 4. External Secrets Operator + GCP Secret Manager (GCP environments)
+# 5. Sealed Secrets (GitOps-friendly, development, non-critical data)
+#
+# NOT RECOMMENDED (Development Only):
+# ❌ Kubernetes Secrets - base64 is NOT encryption
+# ❌ ConfigMaps - no encryption support
+# ❌ Hardcoded credentials - security risk
+#
+# ONBOARDING.md SECTION:
+# - See ONBOARDING.md "Part 4: Secrets Management (CRITICAL - Must Have)"
+# - Includes: Implementation checklist, reference documentation, backend selection
+#
+# AGENTS.md SECTION:
+# - See AGENTS.md "Secrets Management Guidelines (CRITICAL - MUST IMPLEMENT)"
+# - Includes: Step-by-step implementation, YAML examples, common mistakes to avoid
+#
+# DEPLOYMENT CHECKLIST (Before deploying ANY pattern):
+# ✅ Secrets backend selected (AWS, Vault, Azure, GCP, or Sealed Secrets)
+# ✅ Backend credentials configured in cluster or via OIDC
+# ✅ validated_patterns_secrets role included in deployment playbook
+# ✅ SecretStore/ClusterSecretStore created in pattern namespace
+# ✅ External Secrets defined for each credential type
+# ✅ Secret rotation policies configured (if backend supports it)
+# ✅ RBAC policies set (who can read/write secrets)
+# ✅ Audit logging enabled (for compliance requirements)
+# ✅ Tested with dummy values (non-sensitive credentials first)
+#
+# WHAT REQUIRES SECRETS MANAGEMENT:
+# - Database credentials (PostgreSQL, MongoDB, MySQL)
+# - API keys and tokens (OAuth, JWT, external APIs)
+# - TLS certificates and private keys
+# - SSH keys and passphrases
+# - OAuth client secrets
+# - Third-party service credentials (cloud providers, SaaS platforms)
+# - Application configuration secrets
+#
+# COMPLIANCE & AUDIT:
+# - Use External Secrets Operator for audit-trail capability
+# - Implement RBAC policies for secret access
+# - Enable audit logging in your secrets backend
+# - Required for: PCI-DSS, HIPAA, SOC2, GDPR compliance
+
 # ============================================================================
 
 # Tutorials (Learning-oriented):

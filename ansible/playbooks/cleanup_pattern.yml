@@ -1,0 +1,47 @@
+---
+# Cleanup playbook for Validated Patterns deployment
+# Removes pattern resources while retaining shared infrastructure
+# 
+# Uses the validated_patterns_cleanup role with default behavior:
+# - Removes: Pattern CR, ArgoCD apps, application namespaces, ConfigMaps, Secrets
+# - Retains: GitOps, Operator, Gitea (shared infrastructure for reuse)
+#
+# Run with: ansible-playbook cleanup_pattern.yml
+# Or via Makefile: make end2end-cleanup
+
+- name: Cleanup Validated Patterns Deployment
+  hosts: localhost
+  connection: local
+  gather_facts: no
+
+  roles:
+    - name: Cleanup pattern resources
+      include_role:
+        name: validated_patterns_cleanup
+      # Note: Use role defaults for safe cleanup
+      # To customize, set vars:
+      #   cleanup_gitops: true       # Delete GitOps (rarely needed)
+      #   cleanup_gitea: true        # Delete Gitea (rarely needed)  
+      #   cleanup_operator: true     # Delete Operator (rarely needed)
+
+    - name: Cleanup complete notification
+      debug:
+        msg: |
+          ========================================
+          ✅ Cleanup Complete!
+          ========================================
+          
+          Removed resources:
+          • Pattern Custom Resources
+          • ArgoCD Applications
+          • Application namespaces
+          • Related ConfigMaps & Secrets
+          
+          Retained infrastructure (for reuse):
+          • OpenShift GitOps (ArgoCD)
+          • VP Operator
+          • Gitea (development)
+          
+          Cluster is ready for fresh deployment!
+          ========================================
+      tags: always

@@ -3,6 +3,7 @@
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![OpenShift](https://img.shields.io/badge/OpenShift-4.12+-red.svg)](https://www.openshift.com/)
 [![Ansible](https://img.shields.io/badge/Ansible-2.15+-black.svg)](https://www.ansible.com/)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/tosin2013/validated-patterns-ansible-toolkit)
 
 **Reference implementation and reusable toolkit** for deploying [Validated Patterns](https://validatedpatterns.io/) on OpenShift.
 
